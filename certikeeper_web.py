@@ -1,4 +1,3 @@
-# certikeeper_web.py
 import streamlit as st
 import fitz
 import re
@@ -6,13 +5,13 @@ import pandas as pd
 from zipfile import ZipFile
 from io import BytesIO
 
-# 🗂️ Diccionario de bases
+# Diccionario de bases
 base_abrev = {
     "SAN ANDRES": "ADZ", "ARMENIA": "AXM", "CALI": "CLO", "BARRANQUILLA": "BAQ",
     "BUCARAMANGA": "BGA", "SANTA MARTA": "SMR", "CARTAGENA": "CTG"
 }
 
-# 🎓 Cursos válidos
+# Cursos válidos
 cursos_validos = {
     "SMS ESP": "SMS ESP", "SEGURIDAD EN RAMPA PAX": "SEGURIDAD EN RAMPA PAX",
     "SEGURIDAD EN RAMPA OT": "SEGURIDAD EN RAMPA", "FACTORES HUMANOS": "FACTORES HUMANOS",
@@ -20,13 +19,11 @@ cursos_validos = {
     "ATENCIÓN A PASAJEROS": "ATENCIÓN A PASAJEROS"
 }
 
-# ❌ Palabras inválidas
-palabras_invalidas = {
-    "CARGO", "NEO", "AERO", "AGENTE", "SUPERVISOR", "COORDINADOR", "OPERADOR", "A",
-    "PDE", "NEL", "EEE"
-}
+# Palabras inválidas
+palabras_invalidas = {"CARGO", "NEO", "AERO", "AGENTE", "SUPERVISOR",
+                      "COORDINADOR", "OPERADOR", "A", "PDE", "NEL", "EEE"}
 
-# 📄 Función para extraer texto del PDF
+# Función para extraer texto del PDF
 def obtener_texto_con_ocr(pdf_bytes):
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     texto = ""
@@ -35,7 +32,6 @@ def obtener_texto_con_ocr(pdf_bytes):
     doc.close()
     return texto.upper()
 
-# 🎯 Funciones de detección
 def detectar_curso(texto):
     for linea in texto.splitlines():
         for clave in cursos_validos:
@@ -66,7 +62,6 @@ def detectar_nombre_con_flexibilidad(texto):
                 return posible
     return ""
 
-# ✂️ Extraer primer nombre y primer apellido
 def extraer_primer_nombre_apellido(nombre_completo):
     palabras = nombre_completo.strip().split()
     palabras_limpias = [p for p in palabras if p.isalpha() and p not in palabras_invalidas]
@@ -77,7 +72,6 @@ def extraer_primer_nombre_apellido(nombre_completo):
     else:
         return palabras_limpias[0], palabras_limpias[1]
 
-# 🏷️ Extraer toda la información
 def extraer_info(pdf_bytes):
     texto = obtener_texto_con_ocr(pdf_bytes)
     base = detectar_base(texto)
@@ -97,34 +91,28 @@ def extraer_info(pdf_bytes):
 
     return base_ab, curso, tipo, f"{primer_nombre} {primer_apellido}", nuevo_nombre, "✅"
 
-# 🌐 Interfaz con Streamlit
+# INTERFAZ STREAMLIT
 st.title("CertiKeeper Web")
-st.write("Sube tus archivos PDF o ZIP y el sistema renombrará cada certificado dentro de los ZIP individualmente.")
+st.write("Sube tus archivos PDF o ZIP con varios certificados, y se renombrarán individualmente.")
 
-uploaded_files = st.file_uploader(
-    "Sube tus archivos", accept_multiple_files=True, type=["pdf","zip"]
-)
+uploaded_files = st.file_uploader("Sube tus archivos", accept_multiple_files=True, type=["pdf","zip"])
 
-# Lista para todos los PDFs a procesar
+# Lista para almacenar todos los PDFs individuales
 all_pdfs = []
 
 if uploaded_files:
     for uploaded in uploaded_files:
-        nombre_archivo = uploaded.name.lower()
         contenido = uploaded.read()
-
-        # Si es PDF individual
-        if nombre_archivo.endswith(".pdf"):
+        if uploaded.name.lower().endswith(".pdf"):
+            # PDF individual
             all_pdfs.append((uploaded.name, contenido))
-
-        # Si es ZIP, extraer todos los PDFs dentro
-        elif nombre_archivo.endswith(".zip"):
+        elif uploaded.name.lower().endswith(".zip"):
+            # Abrir ZIP y extraer PDFs individualmente
             with ZipFile(BytesIO(contenido)) as zipf:
                 for f in zipf.namelist():
                     if f.lower().endswith(".pdf"):
                         pdf_bytes = zipf.read(f)
-                        # Guardar como (nombre original dentro del zip, contenido)
-                        all_pdfs.append((f, pdf_bytes))
+                        all_pdfs.append((f, pdf_bytes))  # cada PDF separado
 
 # Procesar cada PDF individualmente
 if all_pdfs:
@@ -158,7 +146,7 @@ if all_pdfs:
     df_log.to_excel(excel_buffer, index=False)
     st.download_button("📥 Descargar log Excel", excel_buffer, file_name="log_certificados.xlsx")
 
-    # Crear ZIP final con todos los PDFs renombrados
+    # Crear ZIP final con PDFs renombrados
     zip_buffer = BytesIO()
     with ZipFile(zip_buffer, "w") as zipf:
         for nombre, contenido in renombrados:
