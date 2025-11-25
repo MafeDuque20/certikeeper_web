@@ -1,7 +1,6 @@
 # certikeeper_web.py
 import streamlit as st
 import fitz
-import os
 import re
 import pandas as pd
 from zipfile import ZipFile
@@ -100,30 +99,34 @@ def extraer_info(pdf_bytes):
 
 # 🌐 Interfaz con Streamlit
 st.title("CertiKeeper Web")
-st.write("Sube tus archivos PDF o ZIP y obtén los certificados renombrados automáticamente.")
+st.write("Sube tus archivos PDF o ZIP y el sistema renombrará cada certificado dentro de los ZIP individualmente.")
 
 uploaded_files = st.file_uploader(
     "Sube tus archivos", accept_multiple_files=True, type=["pdf","zip"]
 )
 
+# Lista para todos los PDFs a procesar
 all_pdfs = []
 
-# 🔹 Procesar archivos subidos
 if uploaded_files:
     for uploaded in uploaded_files:
         nombre_archivo = uploaded.name.lower()
         contenido = uploaded.read()
 
+        # Si es PDF individual
         if nombre_archivo.endswith(".pdf"):
             all_pdfs.append((uploaded.name, contenido))
 
+        # Si es ZIP, extraer todos los PDFs dentro
         elif nombre_archivo.endswith(".zip"):
             with ZipFile(BytesIO(contenido)) as zipf:
                 for f in zipf.namelist():
                     if f.lower().endswith(".pdf"):
-                        all_pdfs.append((f, zipf.read(f)))
+                        pdf_bytes = zipf.read(f)
+                        # Guardar como (nombre original dentro del zip, contenido)
+                        all_pdfs.append((f, pdf_bytes))
 
-# 🔹 Procesar PDFs
+# Procesar cada PDF individualmente
 if all_pdfs:
     log = []
     renombrados = []
@@ -155,7 +158,7 @@ if all_pdfs:
     df_log.to_excel(excel_buffer, index=False)
     st.download_button("📥 Descargar log Excel", excel_buffer, file_name="log_certificados.xlsx")
 
-    # Crear ZIP de certificados renombrados
+    # Crear ZIP final con todos los PDFs renombrados
     zip_buffer = BytesIO()
     with ZipFile(zip_buffer, "w") as zipf:
         for nombre, contenido in renombrados:
