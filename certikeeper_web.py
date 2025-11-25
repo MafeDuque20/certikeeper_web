@@ -6,7 +6,6 @@ import re
 import pandas as pd
 from zipfile import ZipFile
 from io import BytesIO
-import rarfile
 
 # 🗂️ Diccionario de bases
 base_abrev = {
@@ -101,10 +100,10 @@ def extraer_info(pdf_bytes):
 
 # 🌐 Interfaz con Streamlit
 st.title("CertiKeeper Web")
-st.write("Sube tus archivos ZIP, RAR o PDFs y obtén los certificados renombrados automáticamente.")
+st.write("Sube tus archivos PDF o ZIP y obtén los certificados renombrados automáticamente.")
 
 uploaded_files = st.file_uploader(
-    "Sube tus archivos", accept_multiple_files=True, type=["pdf","zip","rar"]
+    "Sube tus archivos", accept_multiple_files=True, type=["pdf","zip"]
 )
 
 all_pdfs = []
@@ -123,12 +122,6 @@ if uploaded_files:
                 for f in zipf.namelist():
                     if f.lower().endswith(".pdf"):
                         all_pdfs.append((f, zipf.read(f)))
-
-        elif nombre_archivo.endswith(".rar"):
-            with rarfile.RarFile(BytesIO(contenido)) as rarf:
-                for f in rarf.namelist():
-                    if f.lower().endswith(".pdf"):
-                        all_pdfs.append((f, rarf.read(f)))
 
 # 🔹 Procesar PDFs
 if all_pdfs:
