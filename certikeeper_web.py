@@ -6,6 +6,7 @@ import re
 import pandas as pd
 from zipfile import ZipFile
 from io import BytesIO
+import rarfile
 
 # 🗂️ Diccionario de bases
 base_abrev = {
@@ -100,25 +101,50 @@ def extraer_info(pdf_bytes):
 
 # 🌐 Interfaz con Streamlit
 st.title("CertiKeeper Web")
-st.write("Sube tus archivos PDF y obtén los certificados renombrados automáticamente.")
+st.write("Sube tus archivos ZIP, RAR o PDFs y obtén los certificados renombrados automáticamente.")
 
-uploaded_files = st.file_uploader("Sube tus PDFs", accept_multiple_files=True, type="pdf")
+uploaded_files = st.file_uploader(
+    "Sube tus archivos", accept_multiple_files=True, type=["pdf","zip","rar"]
+)
 
+all_pdfs = []
+
+# 🔹 Procesar archivos subidos
 if uploaded_files:
+    for uploaded in uploaded_files:
+        nombre_archivo = uploaded.name.lower()
+        contenido = uploaded.read()
+
+        if nombre_archivo.endswith(".pdf"):
+            all_pdfs.append((uploaded.name, contenido))
+
+        elif nombre_archivo.endswith(".zip"):
+            with ZipFile(BytesIO(contenido)) as zipf:
+                for f in zipf.namelist():
+                    if f.lower().endswith(".pdf"):
+                        all_pdfs.append((f, zipf.read(f)))
+
+        elif nombre_archivo.endswith(".rar"):
+            with rarfile.RarFile(BytesIO(contenido)) as rarf:
+                for f in rarf.namelist():
+                    if f.lower().endswith(".pdf"):
+                        all_pdfs.append((f, rarf.read(f)))
+
+# 🔹 Procesar PDFs
+if all_pdfs:
     log = []
     renombrados = []
-    for uploaded in uploaded_files:
-        pdf_bytes = uploaded.read()
+
+    for nombre_original, pdf_bytes in all_pdfs:
         base, curso, tipo, alumno, nuevo_nombre, estado = extraer_info(pdf_bytes)
 
         if estado.startswith("ERROR"):
-            log.append({"Archivo original": uploaded.name, "Estado": estado})
+            log.append({"Archivo original": nombre_original, "Estado": estado})
             continue
 
-        # Guardar en memoria para zip
         renombrados.append((nuevo_nombre, pdf_bytes))
         log.append({
-            "Archivo original": uploaded.name,
+            "Archivo original": nombre_original,
             "Nombre final": nuevo_nombre,
             "Base": base,
             "Curso": curso,
@@ -127,16 +153,16 @@ if uploaded_files:
             "Estado": estado
         })
 
-    # Mostrar log en la app
+    # Mostrar log
     df_log = pd.DataFrame(log)
     st.dataframe(df_log)
 
-    # Botón para descargar Excel log
+    # Descargar Excel log
     excel_buffer = BytesIO()
     df_log.to_excel(excel_buffer, index=False)
     st.download_button("📥 Descargar log Excel", excel_buffer, file_name="log_certificados.xlsx")
 
-    # Crear ZIP de certificados
+    # Crear ZIP de certificados renombrados
     zip_buffer = BytesIO()
     with ZipFile(zip_buffer, "w") as zipf:
         for nombre, contenido in renombrados:
