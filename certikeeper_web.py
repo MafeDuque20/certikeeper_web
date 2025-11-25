@@ -91,11 +91,32 @@ def extraer_info(pdf_bytes):
 
     return base_ab, curso, tipo, f"{primer_nombre} {primer_apellido}", nuevo_nombre, "✅"
 
+def separar_paginas_pdf(pdf_bytes, nombre_base):
+    """
+    Separa cada página de un PDF en archivos PDF individuales en memoria.
+    Retorna lista de tuplas: (nombre_generado, bytes_de_pdf)
+    """
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    pdfs_individuales = []
+
+    for i, page in enumerate(doc, start=1):
+        nuevo_pdf = fitz.open()  # Crear PDF vacío
+        nuevo_pdf.insert_pdf(doc, from_page=i-1, to_page=i-1)
+        buffer = BytesIO()
+        nuevo_pdf.save(buffer)
+        buffer.seek(0)
+        nombre = f"{nombre_base}_pagina{i}.pdf"
+        pdfs_individuales.append((nombre, buffer.read()))
+        nuevo_pdf.close()
+    
+    doc.close()
+    return pdfs_individuales
+
 def extraer_pdfs_de_archivos(uploaded_files):
     """
     Extrae todos los PDFs de los archivos subidos.
-    Si es PDF directo, lo agrega a la lista.
-    Si es ZIP, extrae todos los PDFs dentro del ZIP.
+    Si es PDF directo, lo separa por páginas si tiene más de 1.
+    Si es ZIP, extrae todos los PDFs dentro del ZIP y los separa por páginas.
     Retorna una lista de tuplas (nombre_original, contenido_pdf)
     """
     pdfs_extraidos = []
@@ -104,18 +125,18 @@ def extraer_pdfs_de_archivos(uploaded_files):
         contenido = uploaded.read()
         
         if uploaded.name.lower().endswith(".pdf"):
-            # PDF individual directo
-            pdfs_extraidos.append((uploaded.name, contenido))
+            # PDF individual directo, separar por páginas
+            pdfs_extraidos.extend(separar_paginas_pdf(contenido, uploaded.name.replace(".pdf","")))
             
         elif uploaded.name.lower().endswith(".zip"):
-            # Extraer PDFs del ZIP
+            # Extraer PDFs del ZIP y separar páginas
             try:
                 with ZipFile(BytesIO(contenido)) as zipf:
                     archivos_en_zip = zipf.namelist()
                     for nombre_archivo in archivos_en_zip:
                         if nombre_archivo.lower().endswith(".pdf"):
                             pdf_bytes = zipf.read(nombre_archivo)
-                            pdfs_extraidos.append((nombre_archivo, pdf_bytes))
+                            pdfs_extraidos.extend(separar_paginas_pdf(pdf_bytes, nombre_archivo.replace(".pdf","")))
             except Exception as e:
                 st.warning(f"⚠️ Error al procesar ZIP '{uploaded.name}': {str(e)}")
     
@@ -123,18 +144,16 @@ def extraer_pdfs_de_archivos(uploaded_files):
 
 # INTERFAZ STREAMLIT
 st.title("📋 CertiKeeper Web")
-st.write("Sube tus archivos PDF o ZIP con certificados. Los archivos ZIP se descomprimirán automáticamente.")
+st.write("Sube tus archivos PDF o ZIP con certificados. Cada página será procesada como un PDF individual.")
 st.write("Cada certificado será renombrado según su contenido.")
 
 uploaded_files = st.file_uploader(
     "Sube tus archivos (PDF o ZIP)", 
     accept_multiple_files=True, 
-    type=["pdf", "zip"],
-    help="Puedes subir PDFs individuales o archivos ZIP que contengan PDFs"
+    type=["pdf", "zip"]
 )
 
 if uploaded_files:
-    # Paso 1: Extraer todos los PDFs (tanto directos como dentro de ZIPs)
     st.info(f"📦 Procesando {len(uploaded_files)} archivo(s) subido(s)...")
     
     all_pdfs = extraer_pdfs_de_archivos(uploaded_files)
@@ -142,14 +161,14 @@ if uploaded_files:
     if not all_pdfs:
         st.error("❌ No se encontraron archivos PDF para procesar.")
     else:
-        st.success(f"✅ Se encontraron {len(all_pdfs)} certificado(s) PDF")
+        st.success(f"✅ Se encontraron {len(all_pdfs)} página(s) PDF para procesar")
         
         # Mostrar los PDFs extraídos
-        with st.expander("📄 Ver archivos PDF extraídos"):
+        with st.expander("📄 Ver páginas PDF extraídas"):
             for i, (nombre, _) in enumerate(all_pdfs, 1):
                 st.text(f"{i}. {nombre}")
         
-        # Paso 2: Procesar cada PDF individualmente
+        # Procesar cada página PDF individualmente
         log = []
         renombrados = []
         errores = 0
@@ -191,39 +210,36 @@ if uploaded_files:
         progress_bar.empty()
         status_text.empty()
 
-        # Paso 3: Mostrar resultados
+        # Mostrar resultados
         st.write("---")
         st.subheader("📊 Resultados del procesamiento")
         
         col1, col2, col3 = st.columns(3)
         col1.metric("Total procesados", len(all_pdfs))
-        col2.metric("Exitosos", len(renombrados), delta_color="normal")
-        col3.metric("Con errores", errores, delta_color="inverse")
+        col2.metric("Exitosos", len(renombrados))
+        col3.metric("Con errores", errores)
 
-        # Mostrar log
         df_log = pd.DataFrame(log)
         st.dataframe(df_log, use_container_width=True)
 
-        # Paso 4: Opciones de descarga
+        # Opciones de descarga
         st.write("---")
         st.subheader("📥 Descargas")
         
         col1, col2 = st.columns(2)
         
         with col1:
-            # Descargar Excel log
             excel_buffer = BytesIO()
             df_log.to_excel(excel_buffer, index=False, engine='openpyxl')
             excel_buffer.seek(0)
             st.download_button(
-                label="📊 Descargar log Excel",
+                "📊 Descargar log Excel",
                 data=excel_buffer,
                 file_name="log_certificados.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
 
         with col2:
-            # Crear ZIP final con PDFs renombrados
             if renombrados:
                 zip_buffer = BytesIO()
                 with ZipFile(zip_buffer, "w") as zipf:
@@ -231,7 +247,7 @@ if uploaded_files:
                         zipf.writestr(nombre, contenido)
                 zip_buffer.seek(0)
                 st.download_button(
-                    label="📦 Descargar ZIP con certificados renombrados",
+                    "📦 Descargar ZIP con certificados renombrados",
                     data=zip_buffer,
                     file_name="Certificados_Renombrados.zip",
                     mime="application/zip"
@@ -239,7 +255,7 @@ if uploaded_files:
             else:
                 st.warning("⚠️ No hay certificados exitosos para descargar")
 
-        # Mostrar errores si los hay
+        # Mostrar errores
         if errores > 0:
             with st.expander(f"⚠️ Ver {errores} error(es)"):
                 df_errores = df_log[df_log['Estado'].str.startswith('ERROR')]
