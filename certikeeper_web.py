@@ -112,16 +112,14 @@ def separar_paginas_pdf(pdf_bytes, nombre_origen):
 
             pdf_buffer = BytesIO()
 
-            # 🔥🔥🔥 FIX PARA VISTA PREVIA EN WINDOWS 🔥🔥🔥
-            # Se añade linear=True para compatibilidad con vista previa
+            # 🔥🔥🔥 Compatibilidad máxima con Windows Preview
             nuevo_doc.save(
                 pdf_buffer,
                 garbage=4,
                 deflate=True,
                 clean=True,
                 incremental=False,
-                ascii=False,
-                linear=True
+                ascii=False
             )
 
             pdf_buffer.seek(0)
