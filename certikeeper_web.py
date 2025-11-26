@@ -98,69 +98,42 @@ def extraer_info(pdf_bytes):
 
     return base_ab, curso, tipo, f"{primer_nombre} {primer_apellido}", nuevo_nombre, "✅"
 
-# === SEPARAR PDF (COMPATIBLE CON WINDOWS PREVIEW) ===
+# === SEPARAR PDF (COMPATIBLE WINDOWS PREVIEW) ===
 def separar_paginas_pdf(pdf_bytes, nombre_origen):
     paginas_individuales = []
-
     try:
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-        total_paginas = len(doc)
-
-        for num_pagina in range(total_paginas):
+        for num_pagina in range(len(doc)):
             nuevo_doc = fitz.open()
             nuevo_doc.insert_pdf(doc, from_page=num_pagina, to_page=num_pagina)
-
             pdf_buffer = BytesIO()
-
-            # 🔥🔥🔥 Compatibilidad máxima con Windows Preview
-            nuevo_doc.save(
-                pdf_buffer,
-                garbage=4,
-                deflate=True,
-                clean=True,
-                incremental=False,
-                ascii=False
-            )
-
+            nuevo_doc.save(pdf_buffer, garbage=4, deflate=True, clean=True, incremental=False, ascii=False)
             pdf_buffer.seek(0)
-            pagina_bytes = pdf_buffer.read()
+            paginas_individuales.append((f"{nombre_origen}_pag_{num_pagina+1}", pdf_buffer.read()))
             nuevo_doc.close()
-
-            nombre_descriptivo = f"{nombre_origen}_pag_{num_pagina + 1}"
-            paginas_individuales.append((nombre_descriptivo, pagina_bytes))
-
         doc.close()
-
     except Exception as e:
-        st.warning(f" Error al separar páginas de '{nombre_origen}': {str(e)}")
-
+        st.warning(f"Error al separar páginas de '{nombre_origen}': {str(e)}")
     return paginas_individuales
 
 # === Extraer PDFs desde PDF o ZIP ===
 def extraer_pdfs_de_archivos(uploaded_files):
     pdfs_extraidos = []
-
     for uploaded in uploaded_files:
         contenido = uploaded.read()
-
         if uploaded.name.lower().endswith(".pdf"):
             nombre_base = uploaded.name.replace(".pdf", "")
-            paginas = separar_paginas_pdf(contenido, nombre_base)
-            pdfs_extraidos.extend(paginas)
-
+            pdfs_extraidos.extend(separar_paginas_pdf(contenido, nombre_base))
         elif uploaded.name.lower().endswith(".zip"):
             try:
                 with ZipFile(BytesIO(contenido)) as zipf:
-                    archivos_en_zip = zipf.namelist()
-                    for nombre_archivo in archivos_en_zip:
+                    for nombre_archivo in zipf.namelist():
                         if nombre_archivo.lower().endswith(".pdf"):
                             pdf_bytes = zipf.read(nombre_archivo)
                             nombre_base = nombre_archivo.replace(".pdf", "")
-                            paginas = separar_paginas_pdf(pdf_bytes, nombre_base)
-                            pdfs_extraidos.extend(paginas)
+                            pdfs_extraidos.extend(separar_paginas_pdf(pdf_bytes, nombre_base))
             except Exception as e:
                 st.warning(f"Error al procesar ZIP '{uploaded.name}': {str(e)}")
-
     return pdfs_extraidos
 
 # === INTERFAZ STREAMLIT ===
@@ -177,7 +150,6 @@ uploaded_files = st.file_uploader(
 
 if uploaded_files:
     st.info(f"📦 Procesando {len(uploaded_files)} archivo(s) subido(s)...")
-
     all_pdfs = extraer_pdfs_de_archivos(uploaded_files)
 
     if not all_pdfs:
@@ -192,17 +164,15 @@ if uploaded_files:
         log = []
         renombrados = []
         errores = 0
-
         progress_bar = st.progress(0)
         status_text = st.empty()
 
         for idx, (nombre_original, pdf_bytes) in enumerate(all_pdfs):
             progress = (idx + 1) / len(all_pdfs)
             progress_bar.progress(progress)
-            status_text.text(f"Procesando {idx + 1}/{len(all_pdfs)}: {nombre_original}")
+            status_text.text(f"Procesando {idx+1}/{len(all_pdfs)}: {nombre_original}")
 
             base, curso, tipo, alumno, nuevo_nombre, estado = extraer_info(pdf_bytes)
-
             if estado.startswith("ERROR"):
                 errores += 1
                 log.append({
@@ -232,18 +202,15 @@ if uploaded_files:
 
         st.write("---")
         st.subheader("📊 Resultados del procesamiento")
-
         col1, col2, col3 = st.columns(3)
         col1.metric("Total páginas", len(all_pdfs))
         col2.metric("Exitosos", len(renombrados))
         col3.metric("Con errores", errores)
-
         df_log = pd.DataFrame(log)
         st.dataframe(df_log, use_container_width=True)
 
         st.write("---")
         st.subheader("📥 Descargas")
-
         col1, col2 = st.columns(2)
 
         with col1:
@@ -273,39 +240,43 @@ if uploaded_files:
             else:
                 st.warning("⚠️ No hay certificados exitosos para descargar")
 
-        # === ZIP por bases ===
+        # === ZIP por bases, cargos y repetidos ===
         st.write("---")
-        st.subheader("Descargar ZIP organizado por bases")
-
+        st.subheader("📂 Descargar ZIP por bases, cargos y repetidos")
         if renombrados:
             zip_bases_buffer = BytesIO()
-
             with ZipFile(zip_bases_buffer, "w") as zipf:
-                carpetas = {}
-
+                certificados_guardados = {}
                 for nombre, contenido in renombrados:
-                    base_actual = nombre.split()[0].upper()
+                    partes = nombre.split()
+                    base_actual = partes[0].upper()
+                    tipo_cargo = partes[2].upper()
+                    alumno = " ".join(partes[3:5]).upper()
+                    curso = " ".join(partes[1:2]).upper()
 
-                    if base_actual not in carpetas:
-                        carpetas[base_actual] = []
+                    carpeta_cargo = "RAMPA" if tipo_cargo == "OT" else "PAX"
+                    clave = (base_actual, curso, alumno)
 
-                    carpetas[base_actual].append((nombre, contenido))
+                    if clave not in certificados_guardados:
+                        certificados_guardados[clave] = 0
+                    certificados_guardados[clave] += 1
 
-                for base, archivos in carpetas.items():
-                    for nombre, contenido in archivos:
-                        ruta = f"{base}/{nombre}"
-                        zipf.writestr(ruta, contenido)
+                    if certificados_guardados[clave] == 1:
+                        ruta = f"{base_actual}/{carpeta_cargo}/{nombre}"
+                    else:
+                        ruta = f"REPETIDOS/{base_actual}/{carpeta_cargo}/{nombre}"
+
+                    zipf.writestr(ruta, contenido)
 
             zip_bases_buffer.seek(0)
-
             st.download_button(
-                label="📂 Descargar ZIP por bases",
+                label="📂 Descargar ZIP por bases, cargos y repetidos",
                 data=zip_bases_buffer,
-                file_name="Certificados_Por_Base.zip",
+                file_name="Certificados_Por_Base_y_Cargo.zip",
                 mime="application/zip"
             )
         else:
-            st.warning("⚠️ No hay certificados para agrupar por bases")
+            st.warning("⚠️ No hay certificados para agrupar por bases y cargos")
 
         # Mostrar errores
         if errores > 0:
