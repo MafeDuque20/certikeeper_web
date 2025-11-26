@@ -167,7 +167,7 @@ def extraer_pdfs_de_archivos(uploaded_files):
 
 
 # === INTERFAZ STREAMLIT ===
-st.title("ZORRA")
+st.title("CERTIFICADOS")
 st.write("Sube tus archivos PDF o ZIP con certificados.")
 st.write("**Cada página de cada PDF se convertirá en un certificado individual** y será renombrado según su contenido.")
 
