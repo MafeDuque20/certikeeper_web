@@ -30,7 +30,7 @@ cursos_validos = {
 palabras_invalidas = {"CARGO", "NEO", "AERO", "AGENTE", "SUPERVISOR",
                       "COORDINADOR", "OPERADOR", "A", "PDE", "NEL", "EEE"}
 
-# Función para extraer texto del PDF
+# === OCR PDF ===
 def obtener_texto_con_ocr(pdf_bytes):
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     texto = ""
@@ -98,44 +98,58 @@ def extraer_info(pdf_bytes):
 
     return base_ab, curso, tipo, f"{primer_nombre} {primer_apellido}", nuevo_nombre, "✅"
 
+
+# === SEPARAR PDF (COMPATIBLE CON WINDOWS PREVIEW) ===
 def separar_paginas_pdf(pdf_bytes, nombre_origen):
     paginas_individuales = []
-    
+
     try:
         doc = fitz.open(stream=pdf_bytes, filetype="pdf")
         total_paginas = len(doc)
-        
+
         for num_pagina in range(total_paginas):
             nuevo_doc = fitz.open()
             nuevo_doc.insert_pdf(doc, from_page=num_pagina, to_page=num_pagina)
-            
+
             pdf_buffer = BytesIO()
-            nuevo_doc.save(pdf_buffer)
+
+            # 🔥🔥🔥 FIX PARA VISTA PREVIA EN WINDOWS 🔥🔥🔥
+            nuevo_doc.save(
+                pdf_buffer,
+                garbage=4,
+                deflate=True,
+                clean=True,
+                incremental=False,
+                ascii=False
+            )
+
             pdf_buffer.seek(0)
             pagina_bytes = pdf_buffer.read()
             nuevo_doc.close()
-            
+
             nombre_descriptivo = f"{nombre_origen}_pag_{num_pagina + 1}"
             paginas_individuales.append((nombre_descriptivo, pagina_bytes))
-        
+
         doc.close()
-        
+
     except Exception as e:
         st.warning(f" Error al separar páginas de '{nombre_origen}': {str(e)}")
-    
+
     return paginas_individuales
 
+
+# === Extraer PDFs desde PDF o ZIP ===
 def extraer_pdfs_de_archivos(uploaded_files):
     pdfs_extraidos = []
-    
+
     for uploaded in uploaded_files:
         contenido = uploaded.read()
-        
+
         if uploaded.name.lower().endswith(".pdf"):
             nombre_base = uploaded.name.replace(".pdf", "")
             paginas = separar_paginas_pdf(contenido, nombre_base)
             pdfs_extraidos.extend(paginas)
-            
+
         elif uploaded.name.lower().endswith(".zip"):
             try:
                 with ZipFile(BytesIO(contenido)) as zipf:
@@ -148,30 +162,27 @@ def extraer_pdfs_de_archivos(uploaded_files):
                             pdfs_extraidos.extend(paginas)
             except Exception as e:
                 st.warning(f"Error al procesar ZIP '{uploaded.name}': {str(e)}")
-    
+
     return pdfs_extraidos
 
 
-# =============================================
-#                INTERFAZ STREAMLIT
-# =============================================
-
+# === INTERFAZ STREAMLIT ===
 st.title("ZORRA")
 st.write("Sube tus archivos PDF o ZIP con certificados.")
 st.write("**Cada página de cada PDF se convertirá en un certificado individual** y será renombrado según su contenido.")
 
 uploaded_files = st.file_uploader(
-    "Sube tus archivos (PDF o ZIP)", 
-    accept_multiple_files=True, 
+    "Sube tus archivos (PDF o ZIP)",
+    accept_multiple_files=True,
     type=["pdf", "zip"],
     help="Los PDFs se separarán página por página automáticamente"
 )
 
 if uploaded_files:
     st.info(f"📦 Procesando {len(uploaded_files)} archivo(s) subido(s)...")
-    
+
     all_pdfs = extraer_pdfs_de_archivos(uploaded_files)
-    
+
     if not all_pdfs:
         st.error("❌ No se encontraron páginas PDF para procesar.")
     else:
@@ -192,7 +203,7 @@ if uploaded_files:
             progress = (idx + 1) / len(all_pdfs)
             progress_bar.progress(progress)
             status_text.text(f"Procesando {idx + 1}/{len(all_pdfs)}: {nombre_original}")
-            
+
             base, curso, tipo, alumno, nuevo_nombre, estado = extraer_info(pdf_bytes)
 
             if estado.startswith("ERROR"):
@@ -224,7 +235,7 @@ if uploaded_files:
 
         st.write("---")
         st.subheader("📊 Resultados del procesamiento")
-        
+
         col1, col2, col3 = st.columns(3)
         col1.metric("Total páginas", len(all_pdfs))
         col2.metric("Exitosos", len(renombrados))
@@ -235,9 +246,9 @@ if uploaded_files:
 
         st.write("---")
         st.subheader("📥 Descargas")
-        
+
         col1, col2 = st.columns(2)
-        
+
         with col1:
             excel_buffer = BytesIO()
             df_log.to_excel(excel_buffer, index=False, engine='openpyxl')
@@ -265,9 +276,7 @@ if uploaded_files:
             else:
                 st.warning("⚠️ No hay certificados exitosos para descargar")
 
-        # =============================================
-        # ZIP ORGANIZADO POR BASES (ADD-ON)
-        # =============================================
+        # === ZIP por bases ===
         st.write("---")
         st.subheader("Descargar ZIP organizado por bases")
 
