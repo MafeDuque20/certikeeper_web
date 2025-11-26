@@ -98,7 +98,6 @@ def extraer_info(pdf_bytes):
 
     return base_ab, curso, tipo, f"{primer_nombre} {primer_apellido}", nuevo_nombre, "✅"
 
-
 # === SEPARAR PDF (COMPATIBLE CON WINDOWS PREVIEW) ===
 def separar_paginas_pdf(pdf_bytes, nombre_origen):
     paginas_individuales = []
@@ -114,13 +113,15 @@ def separar_paginas_pdf(pdf_bytes, nombre_origen):
             pdf_buffer = BytesIO()
 
             # 🔥🔥🔥 FIX PARA VISTA PREVIA EN WINDOWS 🔥🔥🔥
+            # Se añade linear=True para compatibilidad con vista previa
             nuevo_doc.save(
                 pdf_buffer,
                 garbage=4,
                 deflate=True,
                 clean=True,
                 incremental=False,
-                ascii=False
+                ascii=False,
+                linear=True
             )
 
             pdf_buffer.seek(0)
@@ -136,7 +137,6 @@ def separar_paginas_pdf(pdf_bytes, nombre_origen):
         st.warning(f" Error al separar páginas de '{nombre_origen}': {str(e)}")
 
     return paginas_individuales
-
 
 # === Extraer PDFs desde PDF o ZIP ===
 def extraer_pdfs_de_archivos(uploaded_files):
@@ -164,7 +164,6 @@ def extraer_pdfs_de_archivos(uploaded_files):
                 st.warning(f"Error al procesar ZIP '{uploaded.name}': {str(e)}")
 
     return pdfs_extraidos
-
 
 # === INTERFAZ STREAMLIT ===
 st.title("CERTIFICADOS")
