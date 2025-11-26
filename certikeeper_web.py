@@ -13,10 +13,17 @@ base_abrev = {
 
 # Cursos válidos
 cursos_validos = {
-    "SMS ESP": "SMS ESP", "SEGURIDAD EN RAMPA PAX": "SEGURIDAD EN RAMPA PAX",
-    "SEGURIDAD EN RAMPA OT": "SEGURIDAD EN RAMPA", "FACTORES HUMANOS": "FACTORES HUMANOS",
-    "ER 201": "ER 201", "EQUIPAJES": "EQUIPAJES", "DESPACHO CENTRALIZADO": "DESPACHO",
-    "ATENCIÓN A PASAJEROS": "ATENCIÓN A PASAJEROS"
+    "SMS ESP": "SMS ESP",
+    "SEGURIDAD EN RAMPA PAX": "SEGURIDAD EN RAMPA PAX",
+    "SEGURIDAD EN RAMPA OT": "SEGURIDAD EN RAMPA",
+    "FACTORES HUMANOS": "FACTORES HUMANOS",
+    "ER 201": "ER 201",
+    "EQUIPAJES": "EQUIPAJES",
+    "DESPACHO CENTRALIZADO": "DESPACHO",
+    "ATENCIÓN A PASAJEROS": "ATENCIÓN A PASAJEROS",
+    "BRS": "BRS",
+    "MODELO DE EXPERIENCIA": "MODELO DE EXPERIENCIA",
+    "PROCESOS PARA LA ATENCION DE AERONAVE": "PROCESOS PARA LA ATENCION DE AERONAVE"
 }
 
 # Palabras inválidas
@@ -114,7 +121,7 @@ def separar_paginas_pdf(pdf_bytes, nombre_origen):
         doc.close()
         
     except Exception as e:
-        st.warning(f"⚠️ Error al separar páginas de '{nombre_origen}': {str(e)}")
+        st.warning(f" Error al separar páginas de '{nombre_origen}': {str(e)}")
     
     return paginas_individuales
 
@@ -140,7 +147,7 @@ def extraer_pdfs_de_archivos(uploaded_files):
                             paginas = separar_paginas_pdf(pdf_bytes, nombre_base)
                             pdfs_extraidos.extend(paginas)
             except Exception as e:
-                st.warning(f"⚠️ Error al procesar ZIP '{uploaded.name}': {str(e)}")
+                st.warning(f"Error al procesar ZIP '{uploaded.name}': {str(e)}")
     
     return pdfs_extraidos
 
@@ -262,7 +269,7 @@ if uploaded_files:
         # ZIP ORGANIZADO POR BASES (ADD-ON)
         # =============================================
         st.write("---")
-        st.subheader("📁 Descargar ZIP organizado por bases")
+        st.subheader("Descargar ZIP organizado por bases")
 
         if renombrados:
             zip_bases_buffer = BytesIO()
