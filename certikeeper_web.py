@@ -231,6 +231,7 @@ with st.sidebar:
     - BGA (Bucaramanga)
     - SMR (Santa Marta)
     - CTG (Cartagena)
+    - PEI (Pereira)
     
     ### 🎓 Tipos de cargo:
     - **OT**: Operaciones Terrestres
