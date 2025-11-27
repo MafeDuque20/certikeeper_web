@@ -26,7 +26,7 @@ base_abrev = {
     "BUCARAMANGA": "BGA",
     "SANTA MARTA": "SMR",
     "CARTAGENA": "CTG",
-    "PEI PEREIRA": "PEI"
+    "PEREIRA": "PEI"
 }
 
 cursos_validos = {
