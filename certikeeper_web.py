@@ -25,8 +25,7 @@ base_abrev = {
     "BARRANQUILLA": "BAQ",
     "BUCARAMANGA": "BGA",
     "SANTA MARTA": "SMR",
-    "CARTAGENA": "CTG",
-    "PEREIRA": "PEI"
+    "CARTAGENA": "CTG"
 }
 
 cursos_validos = {
@@ -76,37 +75,48 @@ def detectar_base(texto):
     return "XXX"
 
 # =========================
-# DETECCIÓN DE CARGO (OT / SAP)
+# DETECCIÓN DE CARGO
 # =========================
-def detectar_tipo(texto):
+def detectar_cargo_completo(texto):
+    """Detecta el cargo completo del certificado"""
     texto = texto.upper()
     
-    # Palabras clave fuertes OT
-    claves_ot = [
-        "OT", "OPERACIONES TERRESTRES", "RAMPA",
-        "AGENTE DE RAMPA", "OPERADOR DE RAMPA",
-        "OPERARIO", "OPERACIÓN TERRESTRE"
-    ]
+    # Cargos específicos a buscar
+    if "AGENTE DE SERVICIOS A PASAJEROS" in texto or "AGENTE DE SERVICIO A PASAJEROS" in texto:
+        return "AGENTE DE SERVICIOS A PASAJEROS", "PAX"
+    elif "SUPERVISOR DE SERVICIOS A PASAJEROS" in texto or "SUPERVISOR DE SERVICIO A PASAJEROS" in texto:
+        return "SUPERVISOR DE SERVICIOS A PASAJEROS", "PAX"
+    elif "AGENTE DE RAMPA" in texto:
+        return "AGENTE DE RAMPA", "RAMPA"
+    elif "INSTRUCTOR" in texto:
+        return "INSTRUCTOR", "INSTRUCTOR"
     
-    # Palabras clave fuertes SAP
-    claves_sap = [
-        "SAP", "PAX", "PASAJEROS",
-        "SERVICIO AL PASAJERO", "ATENCIÓN A PASAJEROS",
-        "CHECK IN", "PASAJERO"
-    ]
+    # Fallback: detección por palabras clave
+    claves_rampa = ["OT", "OPERACIONES TERRESTRES", "RAMPA", "OPERADOR DE RAMPA", "OPERARIO"]
+    claves_pax = ["SAP", "PAX", "PASAJEROS", "SERVICIO AL PASAJERO", "ATENCIÓN A PASAJEROS", "CHECK IN"]
     
-    # Detección OT
-    for palabra in claves_ot:
+    for palabra in claves_rampa:
         if palabra in texto:
-            return "OT"
+            return "OT", "RAMPA"
     
-    # Detección SAP
-    for palabra in claves_sap:
+    for palabra in claves_pax:
         if palabra in texto:
-            return "SAP"
+            return "SAP", "PAX"
     
-    # DEFAULT → SAP (porque SAP tiende a aparecer más en texto ambiguo)
-    return "SAP"
+    return "SAP", "PAX"  # Default
+
+def determinar_carpeta_por_nombre(nombre_archivo):
+    """Validación final: determina carpeta basándose en el nombre del archivo"""
+    nombre_upper = nombre_archivo.upper()
+    
+    if " OT " in nombre_upper or nombre_upper.startswith("OT ") or nombre_upper.endswith(" OT"):
+        return "RAMPA"
+    elif " SAP " in nombre_upper or " PAX " in nombre_upper:
+        return "PAX"
+    elif "INSTRUCTOR" in nombre_upper:
+        return "INSTRUCTOR"
+    
+    return "PAX"  # Default
 
 # =========================
 # DETECCIÓN DE NOMBRE
@@ -145,22 +155,38 @@ def extraer_info(pdf_bytes):
     texto = obtener_texto_con_ocr(pdf_bytes)
     base = detectar_base(texto)
     curso = detectar_curso(texto)
-    tipo = detectar_tipo(texto)
+    cargo_completo, carpeta_base = detectar_cargo_completo(texto)
     
     nombre_completo = detectar_nombre_con_flexibilidad(texto)
     if not nombre_completo:
-        return None, None, None, None, None, "ERROR: Sin nombre"
+        return None, None, None, None, None, None, "ERROR: Sin nombre"
     
     primer_nombre, primer_apellido = extraer_primer_nombre_apellido(nombre_completo)
     if not primer_nombre or not primer_apellido:
-        return None, None, None, None, None, "ERROR: Nombre inválido"
+        return None, None, None, None, None, None, "ERROR: Nombre inválido"
     
     base_ab = base_abrev.get(base, "XXX")
     
-    # Crear nombre del archivo SIEMPRE con el tipo
-    nuevo_nombre = f"{base_ab} {curso} {tipo} {primer_nombre} {primer_apellido}".upper() + ".pdf"
+    # REGLA ESPECIAL: SEGURIDAD EN RAMPA
+    # No agregar cargo al nombre, usar el texto exacto del curso
+    if "SEGURIDAD EN RAMPA" in curso:
+        # Buscar el texto exacto en el PDF
+        if "SEGURIDAD EN RAMPA PAX" in texto:
+            curso_exacto = "SEGURIDAD EN RAMPA PAX"
+        elif "SEGURIDAD EN RAMPA OT" in texto:
+            curso_exacto = "SEGURIDAD EN RAMPA OT"
+        else:
+            curso_exacto = curso
+        
+        nuevo_nombre = f"{base_ab} {curso_exacto} {primer_nombre} {primer_apellido}".upper() + ".pdf"
+    else:
+        # Para todos los demás cursos, incluir el cargo
+        nuevo_nombre = f"{base_ab} {curso} {cargo_completo} {primer_nombre} {primer_apellido}".upper() + ".pdf"
     
-    return base_ab, curso, tipo, f"{primer_nombre} {primer_apellido}", nuevo_nombre, "✅"
+    # Validación final por nombre del archivo
+    carpeta_final = determinar_carpeta_por_nombre(nuevo_nombre)
+    
+    return base_ab, curso, cargo_completo, carpeta_final, f"{primer_nombre} {primer_apellido}", nuevo_nombre, "✅"
 
 # =========================
 # SEPARAR PDF EN PÁGINAS
@@ -214,7 +240,7 @@ st.markdown("""
         📜 RENOMBRADOR DE CERTIFICADOS
     </h1>
     <p style='text-align: center; color: #666; font-size: 1.1em;'>
-        Sistema automático de procesamiento y renombrado de certificados WINGO
+        Sistema automático de procesamiento y renombrado de certificados
     </p>
     <hr style='margin: 20px 0;'>
 """, unsafe_allow_html=True)
@@ -231,11 +257,14 @@ with st.sidebar:
     - BGA (Bucaramanga)
     - SMR (Santa Marta)
     - CTG (Cartagena)
-    - PEI (Pereira)
     
     ### 🎓 Tipos de cargo:
-    - **OT**: Operaciones Terrestres
-    - **SAP**: Servicio al Pasajero
+    - **AGENTE DE SERVICIOS A PASAJEROS**: → PAX
+    - **SUPERVISOR DE SERVICIOS A PASAJEROS**: → PAX
+    - **AGENTE DE RAMPA**: → RAMPA
+    - **INSTRUCTOR**: → INSTRUCTOR
+    - **OT**: → RAMPA
+    - **SAP**: → PAX
     
     ### ✨ Características:
     - ✅ Procesa PDFs individuales
@@ -286,7 +315,7 @@ if uploaded_files:
             progress.progress((i+1)/len(all_pdfs))
             status_text.text(f"Procesando: {i+1}/{len(all_pdfs)}")
             
-            base, curso, tipo, alumno, nuevo_nombre, estado = extraer_info(pdf_bytes)
+            base, curso, cargo, carpeta, alumno, nuevo_nombre, estado = extraer_info(pdf_bytes)
             
             if estado.startswith("ERROR"):
                 errores += 1
@@ -296,19 +325,21 @@ if uploaded_files:
                     "Nombre final": "",
                     "Base": "",
                     "Curso": "",
-                    "Tipo": "",
+                    "Cargo": "",
+                    "Carpeta": "",
                     "Alumno": ""
                 })
                 continue
             
-            renombrados.append((nuevo_nombre, pdf_bytes))
+            renombrados.append((nuevo_nombre, pdf_bytes, base, carpeta))
             log.append({
                 "Página original": nombre_original,
                 "Estado": estado,
                 "Nombre final": nuevo_nombre,
                 "Base": base,
                 "Curso": curso,
-                "Tipo": tipo,
+                "Cargo": cargo,
+                "Carpeta": carpeta,
                 "Alumno": alumno
             })
         
@@ -376,8 +407,8 @@ if uploaded_files:
             bases_unicas = ["Todas"] + sorted([b for b in df_log["Base"].unique() if b])
             filtro_base = st.selectbox("🌍 Filtrar por base:", bases_unicas)
         with col_f3:
-            tipos_unicos = ["Todos"] + sorted([t for t in df_log["Tipo"].unique() if t])
-            filtro_tipo = st.selectbox("👥 Filtrar por tipo:", tipos_unicos)
+            carpetas_unicas = ["Todas"] + sorted([c for c in df_log["Carpeta"].unique() if c])
+            filtro_carpeta = st.selectbox("📁 Filtrar por carpeta:", carpetas_unicas)
         
         # Aplicar filtros
         df_filtrado = df_log.copy()
@@ -385,8 +416,8 @@ if uploaded_files:
             df_filtrado = df_filtrado[df_filtrado["Estado"] == filtro_estado]
         if filtro_base != "Todas":
             df_filtrado = df_filtrado[df_filtrado["Base"] == filtro_base]
-        if filtro_tipo != "Todos":
-            df_filtrado = df_filtrado[df_filtrado["Tipo"] == filtro_tipo]
+        if filtro_carpeta != "Todas":
+            df_filtrado = df_filtrado[df_filtrado["Carpeta"] == filtro_carpeta]
         
         st.dataframe(df_filtrado, use_container_width=True, height=400)
         
@@ -405,7 +436,7 @@ if uploaded_files:
             if renombrados:
                 zip_buffer = BytesIO()
                 with ZipFile(zip_buffer, "w") as zipf:
-                    for nombre, contenido in renombrados:
+                    for nombre, contenido, _, _ in renombrados:
                         zipf.writestr(nombre, contenido)
                 zip_buffer.seek(0)
                 
@@ -416,6 +447,34 @@ if uploaded_files:
                     mime="application/zip",
                     use_container_width=True
                 )
+        
+        # ============================================
+        # DESCARGA ORGANIZADA POR BASE Y CARPETA
+        # ============================================
+        st.markdown("---")
+        st.markdown("### 📂 Descarga Organizada por Base y Cargo")
+        st.write("Descarga los certificados organizados en carpetas según BASE → CARPETA (PAX/RAMPA/INSTRUCTOR)")
+        
+        if renombrados:
+            zip_organizado = BytesIO()
+            with ZipFile(zip_organizado, "w") as z:
+                for nombre, contenido, base, carpeta in renombrados:
+                    # Crear estructura: BASE/CARPETA/archivo.pdf
+                    ruta = f"{base}/{carpeta}/{nombre}"
+                    z.writestr(ruta, contenido)
+            
+            zip_organizado.seek(0)
+            
+            st.download_button(
+                label="📂 Descargar ZIP Organizado (BASE → CARPETA)",
+                data=zip_organizado,
+                file_name=f"certificados_organizados_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip",
+                mime="application/zip",
+                use_container_width=True,
+                type="primary"
+            )
+        else:
+            st.warning("⚠️ No hay certificados para organizar")
             else:
                 st.warning("⚠️ No hay certificados exitosos para descargar")
         
