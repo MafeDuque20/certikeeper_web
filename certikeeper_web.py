@@ -68,29 +68,20 @@ def detectar_base(texto):
 def detectar_tipo(texto):
     texto = texto.upper()
 
-    # Palabras clave fuertes OT
-    claves_ot = [
-        "OT", "OPERACIONES TERRESTRES", "RAMPA", "AGENTE DE RAMPA",
-        "OPERADOR DE RAMPA", "OPERARIO", "OPERACIÓN TERRESTRE"
-    ]
+    claves_ot = ["OT", "OPERACIONES TERRESTRES", "RAMPA", "AGENTE DE RAMPA",
+                 "OPERADOR DE RAMPA", "OPERARIO", "OPERACIÓN TERRESTRE"]
 
-    # Palabras clave fuertes SAP
-    claves_sap = [
-        "SAP", "PAX", "PASAJEROS", "SERVICIO AL PASAJERO",
-        "ATENCIÓN A PASAJEROS", "CHECK IN", "PASAJERO"
-    ]
+    claves_sap = ["SAP", "PAX", "PASAJEROS", "SERVICIO AL PASAJERO",
+                  "ATENCIÓN A PASAJEROS", "CHECK IN", "PASAJERO"]
 
-    # Detección OT
     for palabra in claves_ot:
         if palabra in texto:
             return "OT"
 
-    # Detección SAP
     for palabra in claves_sap:
         if palabra in texto:
             return "SAP"
 
-    # DEFAULT → SAP (porque SAP tiende a aparecer más en texto ambiguo)
     return "SAP"
 
 # =========================
@@ -263,17 +254,15 @@ if uploaded_files:
                 file_name="certificados.zip"
             )
 
-        # AGRUPAR POR BASE + CARGO
+        # AGRUPAR POR BASE + CARGO SEGÚN NOMBRE FINAL
         if renombrados:
             zip_bases = BytesIO()
             with ZipFile(zip_bases, "w") as z:
                 for nombre, contenido in renombrados:
                     partes = nombre.split()
-
                     base = partes[0]
-                    tipo = partes[2]  # OT / SAP
+                    tipo = partes[-2]  # ⚠️ Usar OT/SAP desde nombre final
                     carpeta = "RAMPA" if tipo == "OT" else "PAX"
-
                     ruta = f"{base}/{carpeta}/{nombre}"
                     z.writestr(ruta, contenido)
 
