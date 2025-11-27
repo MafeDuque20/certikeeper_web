@@ -189,22 +189,34 @@ def extraer_pdfs_de_archivos(uploaded_files):
     return pdfs
 
 # =========================
-# CREAR ZIP ORGANIZADO
+# CREAR ZIP ORGANIZADO (con RAMPA PAX/OT e INSTRUCTORES)
 # =========================
 def crear_zip_organizado(renombrados_info):
     zip_buffer = BytesIO()
     with ZipFile(zip_buffer,"w") as zipf:
         for info in renombrados_info:
-            nuevo_nombre, pdf_bytes, tipo, base = info["Nombre final"], info["Contenido"], info["Cargo"], info["Base"]
-            # Carpeta según cargo
-            if tipo.upper() == "OT":
+            nuevo_nombre = info["Nombre final"]
+            pdf_bytes = info["Contenido"]
+            tipo = info["Cargo"].upper() if info["Cargo"] else ""
+            base = info["Base"]
+
+            # Carpetas especiales
+            if "INSTRUCTOR" in tipo:
+                carpeta_tipo = "INSTRUCTORES"
+            elif "SEGURIDAD EN RAMPA PAX" in nuevo_nombre:
+                carpeta_tipo = "PAX"
+            elif "SEGURIDAD EN RAMPA OT" in nuevo_nombre:
                 carpeta_tipo = "RAMPA"
-            elif tipo.upper() == "SAP":
+            elif tipo == "OT":
+                carpeta_tipo = "RAMPA"
+            elif tipo == "SAP":
                 carpeta_tipo = "PAX"
             else:
                 carpeta_tipo = "OTROS"
+
             ruta_zip = f"{base}/{carpeta_tipo}/{nuevo_nombre}"
             zipf.writestr(ruta_zip, pdf_bytes)
+
     zip_buffer.seek(0)
     return zip_buffer
 
