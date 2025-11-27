@@ -265,21 +265,24 @@ uploaded_files = st.file_uploader(
 )
 
 if uploaded_files:
-    st.info(f"Procesando {len(uploaded_files)} archivo(s)...")
-    all_pdfs = extraer_pdfs_de_archivos(uploaded_files)
+    with st.spinner(f"🔄 Procesando {len(uploaded_files)} archivo(s)..."):
+        all_pdfs = extraer_pdfs_de_archivos(uploaded_files)
     
     if not all_pdfs:
-        st.error("❌ No se encontraron páginas PDF.")
+        st.error("❌ No se encontraron páginas PDF en los archivos cargados.")
     else:
-        st.success(f"Se extrajeron {len(all_pdfs)} páginas.")
+        st.success(f"✅ Se extrajeron **{len(all_pdfs)}** páginas correctamente.")
         
         log = []
         renombrados = []
         errores = 0
         
         progress = st.progress(0)
+        status_text = st.empty()
+        
         for i, (nombre_original, pdf_bytes) in enumerate(all_pdfs):
             progress.progress((i+1)/len(all_pdfs))
+            status_text.text(f"Procesando: {i+1}/{len(all_pdfs)}")
             
             base, curso, tipo, alumno, nuevo_nombre, estado = extraer_info(pdf_bytes)
             
@@ -296,7 +299,7 @@ if uploaded_files:
                 })
                 continue
             
-            renombrados.append((nuevo_nombre, pdf_bytes, tipo))
+            renombrados.append((nuevo_nombre, pdf_bytes))
             log.append({
                 "Página original": nombre_original,
                 "Estado": estado,
@@ -307,42 +310,183 @@ if uploaded_files:
                 "Alumno": alumno
             })
         
-        st.write("### 📊 Resultados")
-        st.dataframe(pd.DataFrame(log))
+        status_text.empty()
+        progress.empty()
         
-        # DESCARGA ZIP PRINCIPAL
-        if renombrados:
-            zip_buffer = BytesIO()
-            with ZipFile(zip_buffer, "w") as zipf:
-                for nombre, contenido, _ in renombrados:
-                    zipf.writestr(nombre, contenido)
-            zip_buffer.seek(0)
+        # ============================================
+        # ESTADÍSTICAS MEJORADAS
+        # ============================================
+        st.markdown("---")
+        st.markdown("### 📈 Resumen del Procesamiento")
+        
+        col_stat1, col_stat2, col_stat3, col_stat4 = st.columns(4)
+        
+        with col_stat1:
+            st.markdown(f"""
+                <div style='text-align: center; padding: 20px; background-color: #e3f2fd; border-radius: 10px;'>
+                    <h2 style='color: #1976d2; margin: 0;'>{len(all_pdfs)}</h2>
+                    <p style='color: #424242; margin: 5px 0 0 0;'>Total Procesados</p>
+                </div>
+            """, unsafe_allow_html=True)
+        
+        with col_stat2:
+            porcentaje_exito = (len(renombrados)/len(all_pdfs)*100) if len(all_pdfs) > 0 else 0
+            st.markdown(f"""
+                <div style='text-align: center; padding: 20px; background-color: #e8f5e9; border-radius: 10px;'>
+                    <h2 style='color: #388e3c; margin: 0;'>{len(renombrados)}</h2>
+                    <p style='color: #424242; margin: 5px 0 0 0;'>✅ Exitosos ({porcentaje_exito:.1f}%)</p>
+                </div>
+            """, unsafe_allow_html=True)
+        
+        with col_stat3:
+            st.markdown(f"""
+                <div style='text-align: center; padding: 20px; background-color: #ffebee; border-radius: 10px;'>
+                    <h2 style='color: #d32f2f; margin: 0;'>{errores}</h2>
+                    <p style='color: #424242; margin: 5px 0 0 0;'>❌ Errores</p>
+                </div>
+            """, unsafe_allow_html=True)
+        
+        with col_stat4:
+            estado_general = "✅ SIN ERRORES" if errores == 0 else f"⚠️ {errores} ERROR(ES)"
+            color_estado = "#388e3c" if errores == 0 else "#f57c00"
+            bg_color = "#e8f5e9" if errores == 0 else "#fff3e0"
+            st.markdown(f"""
+                <div style='text-align: center; padding: 20px; background-color: {bg_color}; border-radius: 10px;'>
+                    <h2 style='color: {color_estado}; margin: 0; font-size: 1.3em;'>{estado_general}</h2>
+                    <p style='color: #424242; margin: 5px 0 0 0;'>Estado General</p>
+                </div>
+            """, unsafe_allow_html=True)
+        
+        # ============================================
+        # TABLA DE RESULTADOS CON FILTROS
+        # ============================================
+        st.markdown("---")
+        st.markdown("### 📊 Resultados Detallados")
+        
+        # Crear DataFrame
+        df_log = pd.DataFrame(log)
+        
+        # Filtros
+        col_f1, col_f2, col_f3 = st.columns(3)
+        with col_f1:
+            filtro_estado = st.selectbox("🔍 Filtrar por estado:", ["Todos", "✅", "ERROR"])
+        with col_f2:
+            bases_unicas = ["Todas"] + sorted([b for b in df_log["Base"].unique() if b])
+            filtro_base = st.selectbox("🌍 Filtrar por base:", bases_unicas)
+        with col_f3:
+            tipos_unicos = ["Todos"] + sorted([t for t in df_log["Tipo"].unique() if t])
+            filtro_tipo = st.selectbox("👥 Filtrar por tipo:", tipos_unicos)
+        
+        # Aplicar filtros
+        df_filtrado = df_log.copy()
+        if filtro_estado != "Todos":
+            df_filtrado = df_filtrado[df_filtrado["Estado"] == filtro_estado]
+        if filtro_base != "Todas":
+            df_filtrado = df_filtrado[df_filtrado["Base"] == filtro_base]
+        if filtro_tipo != "Todos":
+            df_filtrado = df_filtrado[df_filtrado["Tipo"] == filtro_tipo]
+        
+        st.dataframe(df_filtrado, use_container_width=True, height=400)
+        
+        # ============================================
+        # BOTONES DE DESCARGA MEJORADOS
+        # ============================================
+        st.markdown("---")
+        st.markdown("### 📥 Descargas Disponibles")
+        
+        col_d1, col_d2 = st.columns(2)
+        
+        with col_d1:
+            st.markdown("#### 📦 Certificados Renombrados")
+            st.write("Descarga todos los certificados procesados en un solo archivo ZIP.")
+            
+            if renombrados:
+                zip_buffer = BytesIO()
+                with ZipFile(zip_buffer, "w") as zipf:
+                    for nombre, contenido in renombrados:
+                        zipf.writestr(nombre, contenido)
+                zip_buffer.seek(0)
+                
+                st.download_button(
+                    label="📦 Descargar ZIP de Certificados",
+                    data=zip_buffer,
+                    file_name=f"certificados_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip",
+                    mime="application/zip",
+                    use_container_width=True
+                )
+            else:
+                st.warning("⚠️ No hay certificados exitosos para descargar")
+        
+        with col_d2:
+            st.markdown("#### 📊 Reporte en Excel")
+            st.write("Descarga el reporte completo con todos los detalles del procesamiento.")
+            
+            # Crear Excel con formato mejorado
+            excel_buffer = BytesIO()
+            with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
+                df_log.to_excel(writer, index=False, sheet_name='Reporte Completo')
+                
+                # Ajustar ancho de columnas
+                worksheet = writer.sheets['Reporte Completo']
+                for column in worksheet.columns:
+                    max_length = 0
+                    column_letter = column[0].column_letter
+                    for cell in column:
+                        try:
+                            if len(str(cell.value)) > max_length:
+                                max_length = len(cell.value)
+                        except:
+                            pass
+                    adjusted_width = min(max_length + 2, 50)
+                    worksheet.column_dimensions[column_letter].width = adjusted_width
+            
+            excel_buffer.seek(0)
             
             st.download_button(
-                "📦 Descargar certificados renombrados",
-                data=zip_buffer,
-                file_name="certificados.zip"
+                label="📊 Descargar Reporte Excel",
+                data=excel_buffer,
+                file_name=f"reporte_certificados_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
             )
         
-        # AGRUPAR POR BASE + CARGO
-        if renombrados:
-            zip_bases = BytesIO()
-            with ZipFile(zip_bases, "w") as z:
-                for nombre, contenido, tipo in renombrados:
-                    # Extraer la base del nombre del archivo (primeras 3 letras)
-                    base = nombre.split()[0]
-                    
-                    # Determinar carpeta según el tipo
-                    carpeta = "RAMPA" if tipo == "OT" else "PAX"
-                    
-                    # Crear ruta dentro del ZIP
-                    ruta = f"{base}/{carpeta}/{nombre}"
-                    z.writestr(ruta, contenido)
-            
-            zip_bases.seek(0)
-            
-            st.download_button(
-                "📂 Descargar ZIP organizado por BASE y CARGO",
-                zip_bases,
-                "Certificados_Por_Base_Cargo.zip"
+        # ============================================
+        # HERRAMIENTA DE BÚSQUEDA
+        # ============================================
+        st.markdown("---")
+        st.markdown("### 🔍 Buscar Certificado Específico")
+        
+        col_search1, col_search2 = st.columns([3, 1])
+        
+        with col_search1:
+            busqueda = st.text_input(
+                "Ingresa nombre o apellido del alumno:",
+                placeholder="Ejemplo: Juan, Perez, etc.",
+                help="La búsqueda no distingue mayúsculas y minúsculas"
             )
+        
+        with col_search2:
+            st.write("")
+            st.write("")
+            buscar_btn = st.button("🔍 Buscar", use_container_width=True)
+        
+        if busqueda or buscar_btn:
+            resultados = df_log[
+                df_log["Alumno"].str.contains(busqueda.upper(), na=False) |
+                df_log["Nombre final"].str.contains(busqueda.upper(), na=False)
+            ]
+            
+            if len(resultados) > 0:
+                st.success(f"✅ Se encontraron **{len(resultados)}** resultado(s)")
+                st.dataframe(resultados, use_container_width=True)
+            else:
+                st.warning("⚠️ No se encontraron resultados para tu búsqueda")
+
+else:
+    # Mensaje cuando no hay archivos
+    st.markdown("""
+        <div style='text-align: center; padding: 40px; background-color: #f5f5f5; border-radius: 10px; margin-top: 20px;'>
+            <h3 style='color: #666;'>👆 Por favor, carga uno o más archivos para comenzar</h3>
+            <p style='color: #888;'>Formatos aceptados: PDF, ZIP</p>
+        </div>
+    """, unsafe_allow_html=True)
