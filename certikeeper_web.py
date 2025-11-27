@@ -214,7 +214,7 @@ st.markdown("""
         📜 RENOMBRADOR DE CERTIFICADOS
     </h1>
     <p style='text-align: center; color: #666; font-size: 1.1em;'>
-        Sistema automático de procesamiento y renombrado de certificados
+        Sistema automático de procesamiento y renombrado de certificados WINGO
     </p>
     <hr style='margin: 20px 0;'>
 """, unsafe_allow_html=True)
