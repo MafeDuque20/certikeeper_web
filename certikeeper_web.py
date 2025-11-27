@@ -25,7 +25,8 @@ base_abrev = {
     "BARRANQUILLA": "BAQ",
     "BUCARAMANGA": "BGA",
     "SANTA MARTA": "SMR",
-    "CARTAGENA": "CTG"
+    "CARTAGENA": "CTG",
+    "PEREIRA": "PEI"   # <--- NUEVA BASE
 }
 
 cursos_validos = {
@@ -120,17 +121,33 @@ def detectar_nombre_con_flexibilidad(texto):
                 return posible
     return ""
 
+# =========================
+# SOLO PRIMER NOMBRE + PRIMER APELLIDO (ARREGLADO)
+# =========================
 def extraer_primer_nombre_apellido(nombre_completo):
-    palabras = nombre_completo.strip().split()
-    palabras_limpias = [p for p in palabras if p.isalpha() and p not in palabras_invalidas]
-    
-    if len(palabras_limpias) < 2:
+    if not nombre_completo:
         return None, None
-    
-    if len(palabras_limpias) >= 4:
-        return palabras_limpias[0], palabras_limpias[2]
-    else:
-        return palabras_limpias[0], palabras_limpias[1]
+
+    # Limpiar cortes extraños del OCR
+    limpio = nombre_completo.replace("\n", " ").replace("-", " ")
+    limpio = " ".join(limpio.split())
+
+    partes = limpio.split()
+
+    if len(partes) < 2:
+        return None, None
+
+    primer_nombre = partes[0]
+
+    # Unir apellidos partidos por OCR (ej: "ZU" + "ÑIGA")
+    apellido = partes[1]
+
+    if len(partes) >= 3 and len(partes[1]) <= 3:
+        apellido = partes[1] + partes[2]
+
+    apellido = apellido.replace(" ", "")
+
+    return primer_nombre, apellido
 
 # =========================
 # EXTRAER INFORMACIÓN
@@ -222,6 +239,7 @@ with st.sidebar:
     - BGA (Bucaramanga)
     - SMR (Santa Marta)
     - CTG (Cartagena)
+    - PEI (Pereira)
     
     ### 🎓 Tipos de cargo:
     - **OT**: Operaciones Terrestres
@@ -307,7 +325,6 @@ if uploaded_files:
 
         col_stat1, col_stat2, col_stat3, col_stat4 = st.columns(4)
 
-        # Stats Cards
         with col_stat1:
             st.metric("Total Procesados", len(all_pdfs))
         with col_stat2:
@@ -317,7 +334,6 @@ if uploaded_files:
         with col_stat4:
             st.metric("Estado", "Sin errores" if errores == 0 else f"{errores} error(es)")
 
-        # TABLA
         st.markdown("---")
         st.markdown("### 📊 Resultados Detallados")
 
@@ -325,7 +341,6 @@ if uploaded_files:
 
         st.dataframe(df_log, use_container_width=True, height=400)
 
-        # DESCARGAS
         st.markdown("---")
         st.markdown("### 📥 Descargas")
 
@@ -362,7 +377,6 @@ if uploaded_files:
             )
 
 else:
-    # MENSAJE FINAL QUE FALTABA COMPLETAR
     st.markdown("""
         <div style='text-align: center; padding: 40px; background-color: #f5f5f5; border-radius: 10px; margin-top: 20px;'>
             <h3 style='color: #666;'>👆 Por favor, carga uno o más archivos para iniciar el procesamiento.</h3>
