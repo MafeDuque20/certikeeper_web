@@ -26,7 +26,7 @@ base_abrev = {
     "BUCARAMANGA": "BGA",
     "SANTA MARTA": "SMR",
     "CARTAGENA": "CTG",
-    "PEREIRA": "PEI"   # <--- NUEVA BASE
+    "PEREIRA": "PEI"
 }
 
 cursos_validos = {
@@ -82,7 +82,7 @@ def detectar_tipo(texto):
     texto = texto.upper()
     
     claves_ot = [
-        "OT", "OPERACIONES TERRESTRES", "RAMPA",
+        "OT", "OPERACIONES TERRESTRES",
         "AGENTE DE RAMPA", "OPERADOR DE RAMPA",
         "OPERARIO", "OPERACIÓN TERRESTRE"
     ]
@@ -122,54 +122,73 @@ def detectar_nombre_con_flexibilidad(texto):
     return ""
 
 # =========================
-# SOLO PRIMER NOMBRE + PRIMER APELLIDO (ARREGLADO)
+# SOLO PRIMER NOMBRE + PRIMER APELLIDO
 # =========================
 def extraer_primer_nombre_apellido(nombre_completo):
     if not nombre_completo:
         return None, None
 
-    # Limpiar cortes extraños del OCR
     limpio = nombre_completo.replace("\n", " ").replace("-", " ")
     limpio = " ".join(limpio.split())
 
     partes = limpio.split()
-
     if len(partes) < 2:
         return None, None
 
     primer_nombre = partes[0]
-
-    # Unir apellidos partidos por OCR (ej: "ZU" + "ÑIGA")
     apellido = partes[1]
-
     if len(partes) >= 3 and len(partes[1]) <= 3:
         apellido = partes[1] + partes[2]
-
     apellido = apellido.replace(" ", "")
 
     return primer_nombre, apellido
 
 # =========================
-# EXTRAER INFORMACIÓN
+# EXTRAER INFORMACIÓN (CON RAMPA CORRECTO)
 # =========================
 def extraer_info(pdf_bytes):
     texto = obtener_texto_con_ocr(pdf_bytes)
     base = detectar_base(texto)
+    
+    # Detectar curso RAMPA PAX/OT
+    curso_detectado = None
+    for c in ["SEGURIDAD EN RAMPA PAX", "SEGURIDAD EN RAMPA OT"]:
+        if c in texto:
+            curso_detectado = c
+            break
+
+    if curso_detectado:
+        tipo = ""  # No se usa tipo en este curso
+        curso_final = curso_detectado
+
+        nombre_completo = detectar_nombre_con_flexibilidad(texto)
+        if not nombre_completo:
+            return None, None, None, None, None, "ERROR: Sin nombre"
+
+        primer_nombre, primer_apellido = extraer_primer_nombre_apellido(nombre_completo)
+        if not primer_nombre or not primer_apellido:
+            return None, None, None, None, None, "ERROR: Nombre inválido"
+
+        base_ab = base_abrev.get(base, "XXX")
+        nuevo_nombre = f"{base_ab} {curso_final} {primer_nombre} {primer_apellido}".upper() + ".pdf"
+
+        return base_ab, curso_final, tipo, f"{primer_nombre} {primer_apellido}", nuevo_nombre, "✅"
+
+    # Cursos normales
     curso = detectar_curso(texto)
     tipo = detectar_tipo(texto)
-    
+
     nombre_completo = detectar_nombre_con_flexibilidad(texto)
     if not nombre_completo:
         return None, None, None, None, None, "ERROR: Sin nombre"
-    
+
     primer_nombre, primer_apellido = extraer_primer_nombre_apellido(nombre_completo)
     if not primer_nombre or not primer_apellido:
         return None, None, None, None, None, "ERROR: Nombre inválido"
-    
+
     base_ab = base_abrev.get(base, "XXX")
-    
     nuevo_nombre = f"{base_ab} {curso} {tipo} {primer_nombre} {primer_apellido}".upper() + ".pdf"
-    
+
     return base_ab, curso, tipo, f"{primer_nombre} {primer_apellido}", nuevo_nombre, "✅"
 
 # =========================
@@ -217,7 +236,6 @@ def extraer_pdfs_de_archivos(uploaded_files):
 # =========================
 # STREAMLIT UI
 # =========================
-
 st.markdown("""
     <h1 style='text-align: center; color: #1f77b4;'>
         📜 RENOMBRADOR DE CERTIFICADOS
