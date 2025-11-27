@@ -76,7 +76,7 @@ def detectar_base(texto):
     return "XXX"
 
 # =========================
-# DETECCIÓN DE CARGO (OT / SAP)
+# DETECCIÓN DE CARGO
 # =========================
 def detectar_tipo(texto):
     texto = texto.upper()
@@ -122,7 +122,7 @@ def detectar_nombre_con_flexibilidad(texto):
     return ""
 
 # =========================
-# EXTRAER SOLO PRIMER NOMBRE + PRIMER APELLIDO CORRECTO
+# EXTRAER SOLO PRIMER NOMBRE + PRIMER APELLIDO
 # =========================
 def extraer_primer_nombre_apellido(nombre_completo):
     if not nombre_completo:
@@ -130,27 +130,18 @@ def extraer_primer_nombre_apellido(nombre_completo):
 
     limpio = nombre_completo.replace("\n", " ").replace("-", " ")
     limpio = " ".join(limpio.split())
-    
+
     partes = limpio.split()
     if len(partes) < 2:
         return None, None
-    
+
     primer_nombre = partes[0]
-    
-    # Buscar primer apellido válido ignorando partículas
-    partículas = {"DE", "DEL", "DA", "Y"}
-    primer_apellido = None
-    for i in range(1, len(partes)):
-        if partes[i].upper() not in partículas:
-            primer_apellido = partes[i]
-            break
-    if not primer_apellido:
-        primer_apellido = partes[1]
-    
+    primer_apellido = partes[1]
+
     return primer_nombre, primer_apellido
 
 # =========================
-# EXTRAER INFORMACIÓN (CON RAMPA CORRECTO)
+# EXTRAER INFORMACIÓN
 # =========================
 def extraer_info(pdf_bytes):
     texto = obtener_texto_con_ocr(pdf_bytes)
@@ -240,6 +231,32 @@ def extraer_pdfs_de_archivos(uploaded_files):
     return pdfs_extraidos
 
 # =========================
+# CREAR ZIP ORGANIZADO POR BASE / PAX-RAMPA
+# =========================
+def crear_zip_organizado(renombrados_info):
+    zip_buffer = BytesIO()
+    with ZipFile(zip_buffer, "w") as zipf:
+        for info in renombrados_info:
+            nuevo_nombre, pdf_bytes, tipo = info["Nombre final"], info["Contenido"], info["Cargo"]
+            base = info["Base"]
+            
+            # Determinar carpeta según cargo
+            carpeta_tipo = ""
+            cargo_upper = tipo.upper() if tipo else ""
+            if "AGENTE DE RAMPA" in cargo_upper:
+                carpeta_tipo = "RAMPA"
+            elif "AGENTE DE SERVICIOS A PASAJEROS" in cargo_upper or "SUPERVISOR DE SERVICIOS A PASAJEROS" in cargo_upper:
+                carpeta_tipo = "PAX"
+            else:
+                carpeta_tipo = "OTROS"
+            
+            ruta_zip = f"{base}/{carpeta_tipo}/{nuevo_nombre}"
+            zipf.writestr(ruta_zip, pdf_bytes)
+    
+    zip_buffer.seek(0)
+    return zip_buffer
+
+# =========================
 # STREAMLIT UI
 # =========================
 st.markdown("""
@@ -305,7 +322,7 @@ if uploaded_files:
         st.success(f"✅ Se extrajeron {len(all_pdfs)} páginas.")
         
         log = []
-        renombrados = []
+        renombrados_info = []
         errores = 0
         
         progress = st.progress(0)
@@ -330,7 +347,13 @@ if uploaded_files:
                 })
                 continue
             
-            renombrados.append((nuevo_nombre, pdf_bytes))
+            renombrados_info.append({
+                "Nombre final": nuevo_nombre,
+                "Contenido": pdf_bytes,
+                "Cargo": tipo,
+                "Base": base
+            })
+            
             log.append({
                 "Página original": nombre_original,
                 "Estado": estado,
@@ -352,7 +375,7 @@ if uploaded_files:
         with col_stat1:
             st.metric("Total Procesados", len(all_pdfs))
         with col_stat2:
-            st.metric("Exitosos", len(renombrados))
+            st.metric("Exitosos", len(renombrados_info))
         with col_stat3:
             st.metric("Errores", errores)
         with col_stat4:
@@ -370,14 +393,10 @@ if uploaded_files:
 
         col_d1, col_d2 = st.columns(2)
 
+        # ZIP organizado
         with col_d1:
-            if renombrados:
-                zip_buffer = BytesIO()
-                with ZipFile(zip_buffer, "w") as zipf:
-                    for nombre, contenido in renombrados:
-                        zipf.writestr(nombre, contenido)
-                zip_buffer.seek(0)
-
+            if renombrados_info:
+                zip_buffer = crear_zip_organizado(renombrados_info)
                 st.download_button(
                     "📦 Descargar ZIP",
                     zip_buffer,
@@ -386,12 +405,12 @@ if uploaded_files:
                     use_container_width=True
                 )
 
+        # Excel log
         with col_d2:
             excel_buffer = BytesIO()
             with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
                 df_log.to_excel(writer, index=False, sheet_name='Reporte')
             excel_buffer.seek(0)
-
             st.download_button(
                 "📊 Descargar Excel",
                 excel_buffer,
