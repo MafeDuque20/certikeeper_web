@@ -122,7 +122,7 @@ def detectar_nombre_con_flexibilidad(texto):
     return ""
 
 # =========================
-# SOLO PRIMER NOMBRE + PRIMER APELLIDO
+# EXTRAER SOLO PRIMER NOMBRE + PRIMER APELLIDO
 # =========================
 def extraer_primer_nombre_apellido(nombre_completo):
     if not nombre_completo:
@@ -136,12 +136,9 @@ def extraer_primer_nombre_apellido(nombre_completo):
         return None, None
 
     primer_nombre = partes[0]
-    apellido = partes[1]
-    if len(partes) >= 3 and len(partes[1]) <= 3:
-        apellido = partes[1] + partes[2]
-    apellido = apellido.replace(" ", "")
+    primer_apellido = partes[1]
 
-    return primer_nombre, apellido
+    return primer_nombre, primer_apellido
 
 # =========================
 # EXTRAER INFORMACIÓN (CON RAMPA CORRECTO)
