@@ -5,16 +5,19 @@ import pandas as pd
 from zipfile import ZipFile
 from io import BytesIO
 
-# Diccionario de bases
+# =========================
+#     DICCIONARIOS BASE
+# =========================
+
 base_abrev = {
-    "SAN ANDRES": "ADZ", "ARMENIA": "AXM", "CALI": "CLO", "BARRANQUILLA": "BAQ",
-    "BUCARAMANGA": "BGA", "SANTA MARTA": "SMR", "CARTAGENA": "CTG"
+    "SAN ANDRES": "ADZ", "ARMENIA": "AXM", "CALI": "CLO",
+    "BARRANQUILLA": "BAQ", "BUCARAMANGA": "BGA",
+    "SANTA MARTA": "SMR", "CARTAGENA": "CTG"
 }
 
-# Cursos válidos
 cursos_validos = {
     "SMS ESP": "SMS ESP",
-    "SEGURIDAD EN RAMPA PAX": "SEGURIDAD EN RAMPA PAX",
+    "SEGURIDAD EN RAMPA PAX": "SEGURIDAD EN RAMPA",
     "SEGURIDAD EN RAMPA OT": "SEGURIDAD EN RAMPA",
     "FACTORES HUMANOS": "FACTORES HUMANOS",
     "ER 201": "ER 201",
@@ -26,11 +29,12 @@ cursos_validos = {
     "PROCESOS PARA LA ATENCION DE AERONAVE": "PROCESOS PARA LA ATENCION DE AERONAVE"
 }
 
-# Palabras inválidas
 palabras_invalidas = {"CARGO", "NEO", "AERO", "AGENTE", "SUPERVISOR",
                       "COORDINADOR", "OPERADOR", "A", "PDE", "NEL", "EEE"}
 
-# === OCR PDF ===
+# =========================
+#      OCR PDF
+# =========================
 def obtener_texto_con_ocr(pdf_bytes):
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     texto = ""
@@ -39,6 +43,9 @@ def obtener_texto_con_ocr(pdf_bytes):
     doc.close()
     return texto.upper()
 
+# =========================
+#   DETECCIÓN DE CURSO
+# =========================
 def detectar_curso(texto):
     for linea in texto.splitlines():
         for clave in cursos_validos:
@@ -46,15 +53,49 @@ def detectar_curso(texto):
                 return cursos_validos[clave]
     return "CURSO"
 
+# =========================
+#   DETECCIÓN DE BASE
+# =========================
 def detectar_base(texto):
     for base in base_abrev:
         if base in texto:
             return base
     return "XXX"
 
+# =========================
+#   DETECCIÓN DE CARGO (OT / SAP)
+# =========================
 def detectar_tipo(texto):
-    return "OT" if "AGENTE DE RAMPA" in texto else "SAP"
+    texto = texto.upper()
 
+    # Palabras clave fuertes OT
+    claves_ot = [
+        "OT", "OPERACIONES TERRESTRES", "RAMPA", "AGENTE DE RAMPA",
+        "OPERADOR DE RAMPA", "OPERARIO", "OPERACIÓN TERRESTRE"
+    ]
+
+    # Palabras clave fuertes SAP
+    claves_sap = [
+        "SAP", "PAX", "PASAJEROS", "SERVICIO AL PASAJERO",
+        "ATENCIÓN A PASAJEROS", "CHECK IN", "PASAJERO"
+    ]
+
+    # Detección OT
+    for palabra in claves_ot:
+        if palabra in texto:
+            return "OT"
+
+    # Detección SAP
+    for palabra in claves_sap:
+        if palabra in texto:
+            return "SAP"
+
+    # DEFAULT → SAP (porque SAP tiende a aparecer más en texto ambiguo)
+    return "SAP"
+
+# =========================
+# DETECCIÓN DE NOMBRE
+# =========================
 def detectar_nombre_con_flexibilidad(texto):
     patrones = [
         r"NOMBRE\s+DEL\s+ALUMNO\s*:?[\s]*([A-Z\s]{5,})\s+IDENTIFICACIÓN",
@@ -79,8 +120,12 @@ def extraer_primer_nombre_apellido(nombre_completo):
     else:
         return palabras_limpias[0], palabras_limpias[1]
 
+# =========================
+# EXTRAER INFORMACIÓN
+# =========================
 def extraer_info(pdf_bytes):
     texto = obtener_texto_con_ocr(pdf_bytes)
+
     base = detectar_base(texto)
     curso = detectar_curso(texto)
     tipo = detectar_tipo(texto)
@@ -94,11 +139,18 @@ def extraer_info(pdf_bytes):
         return None, None, None, None, None, "ERROR: Nombre inválido"
 
     base_ab = base_abrev.get(base, "XXX")
-    nuevo_nombre = f"{base_ab} {curso} {tipo} {primer_nombre} {primer_apellido}".upper() + ".pdf"
+
+    # ⚠️ CURSO SEGURIDAD EN RAMPA → no agregar PAX u OT al nombre
+    if "SEGURIDAD EN RAMPA" in curso:
+        nuevo_nombre = f"{base_ab} {curso} {tipo} {primer_nombre} {primer_apellido}".upper() + ".pdf"
+    else:
+        nuevo_nombre = f"{base_ab} {curso} {tipo} {primer_nombre} {primer_apellido}".upper() + ".pdf"
 
     return base_ab, curso, tipo, f"{primer_nombre} {primer_apellido}", nuevo_nombre, "✅"
 
-# === SEPARAR PDF (COMPATIBLE WINDOWS PREVIEW) ===
+# =========================
+# SEPARAR PDF EN PÁGINAS
+# =========================
 def separar_paginas_pdf(pdf_bytes, nombre_origen):
     paginas_individuales = []
     try:
@@ -107,16 +159,18 @@ def separar_paginas_pdf(pdf_bytes, nombre_origen):
             nuevo_doc = fitz.open()
             nuevo_doc.insert_pdf(doc, from_page=num_pagina, to_page=num_pagina)
             pdf_buffer = BytesIO()
-            nuevo_doc.save(pdf_buffer, garbage=4, deflate=True, clean=True, incremental=False, ascii=False)
+            nuevo_doc.save(pdf_buffer, garbage=4, deflate=True, clean=True, incremental=False)
             pdf_buffer.seek(0)
             paginas_individuales.append((f"{nombre_origen}_pag_{num_pagina+1}", pdf_buffer.read()))
             nuevo_doc.close()
         doc.close()
     except Exception as e:
-        st.warning(f"Error al separar páginas de '{nombre_origen}': {str(e)}")
+        st.warning(f"Error separando '{nombre_origen}': {str(e)}")
     return paginas_individuales
 
-# === Extraer PDFs desde PDF o ZIP ===
+# =========================
+# EXTRAER PDFs DE ZIP O PDF
+# =========================
 def extraer_pdfs_de_archivos(uploaded_files):
     pdfs_extraidos = []
     for uploaded in uploaded_files:
@@ -133,60 +187,56 @@ def extraer_pdfs_de_archivos(uploaded_files):
                             nombre_base = nombre_archivo.replace(".pdf", "")
                             pdfs_extraidos.extend(separar_paginas_pdf(pdf_bytes, nombre_base))
             except Exception as e:
-                st.warning(f"Error al procesar ZIP '{uploaded.name}': {str(e)}")
+                st.warning(f"Error ZIP '{uploaded.name}': {str(e)}")
     return pdfs_extraidos
 
-# === INTERFAZ STREAMLIT ===
-st.title("CERTIFICADOS")
-st.write("Sube tus archivos PDF o ZIP con certificados.")
-st.write("**Cada página de cada PDF se convertirá en un certificado individual** y será renombrado según su contenido.")
+# =========================
+#      STREAMLIT UI
+# =========================
+st.title("RENOMBRAR CERTIFICADOS")
+st.write("Cada página del PDF se convertirá en un certificado individual.")
 
 uploaded_files = st.file_uploader(
-    "Sube tus archivos (PDF o ZIP)",
+    "📂 Sube PDFs o ZIP con certificados",
     accept_multiple_files=True,
-    type=["pdf", "zip"],
-    help="Los PDFs se separarán página por página automáticamente"
+    type=["pdf", "zip"]
 )
 
 if uploaded_files:
-    st.info(f"📦 Procesando {len(uploaded_files)} archivo(s) subido(s)...")
+    st.info(f"Procesando {len(uploaded_files)} archivo(s)...")
     all_pdfs = extraer_pdfs_de_archivos(uploaded_files)
 
     if not all_pdfs:
-        st.error("❌ No se encontraron páginas PDF para procesar.")
+        st.error("❌ No se encontraron páginas PDF.")
     else:
-        st.success(f"✅ Se extrajeron {len(all_pdfs)} página(s) individual(es)")
-
-        with st.expander("📄 Ver páginas PDF extraídas"):
-            for i, (nombre, _) in enumerate(all_pdfs, 1):
-                st.text(f"{i}. {nombre}")
+        st.success(f"Se extrajeron {len(all_pdfs)} páginas.")
 
         log = []
         renombrados = []
         errores = 0
-        progress_bar = st.progress(0)
-        status_text = st.empty()
 
-        for idx, (nombre_original, pdf_bytes) in enumerate(all_pdfs):
-            progress = (idx + 1) / len(all_pdfs)
-            progress_bar.progress(progress)
-            status_text.text(f"Procesando {idx+1}/{len(all_pdfs)}: {nombre_original}")
+        progress = st.progress(0)
+
+        for i, (nombre_original, pdf_bytes) in enumerate(all_pdfs):
+            progress.progress((i+1)/len(all_pdfs))
 
             base, curso, tipo, alumno, nuevo_nombre, estado = extraer_info(pdf_bytes)
+
             if estado.startswith("ERROR"):
                 errores += 1
                 log.append({
                     "Página original": nombre_original,
                     "Estado": estado,
-                    "Nombre final": "N/A",
-                    "Base": "N/A",
-                    "Curso": "N/A",
-                    "Tipo": "N/A",
-                    "Alumno": "N/A"
+                    "Nombre final": "",
+                    "Base": "",
+                    "Curso": "",
+                    "Tipo": "",
+                    "Alumno": ""
                 })
                 continue
 
             renombrados.append((nuevo_nombre, pdf_bytes))
+
             log.append({
                 "Página original": nombre_original,
                 "Estado": estado,
@@ -197,89 +247,39 @@ if uploaded_files:
                 "Alumno": alumno
             })
 
-        progress_bar.empty()
-        status_text.empty()
+        st.write("### 📊 Resultados")
+        st.dataframe(pd.DataFrame(log))
 
-        st.write("---")
-        st.subheader("📊 Resultados del procesamiento")
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Total páginas", len(all_pdfs))
-        col2.metric("Exitosos", len(renombrados))
-        col3.metric("Con errores", errores)
-        df_log = pd.DataFrame(log)
-        st.dataframe(df_log, use_container_width=True)
-
-        st.write("---")
-        st.subheader("📥 Descargas")
-        col1, col2 = st.columns(2)
-
-        with col1:
-            excel_buffer = BytesIO()
-            df_log.to_excel(excel_buffer, index=False, engine='openpyxl')
-            excel_buffer.seek(0)
+        # DESCARGA ZIP PRINCIPAL
+        if renombrados:
+            zip_buffer = BytesIO()
+            with ZipFile(zip_buffer, "w") as zipf:
+                for nombre, contenido in renombrados:
+                    zipf.writestr(nombre, contenido)
+            zip_buffer.seek(0)
             st.download_button(
-                label="📊 Descargar log Excel",
-                data=excel_buffer,
-                file_name="log_certificados.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                "📦 Descargar certificados renombrados",
+                data=zip_buffer,
+                file_name="certificados.zip"
             )
 
-        with col2:
-            if renombrados:
-                zip_buffer = BytesIO()
-                with ZipFile(zip_buffer, "w") as zipf:
-                    for nombre, contenido in renombrados:
-                        zipf.writestr(nombre, contenido)
-                zip_buffer.seek(0)
-                st.download_button(
-                    label="📦 Descargar ZIP con certificados renombrados",
-                    data=zip_buffer,
-                    file_name="Certificados_Renombrados.zip",
-                    mime="application/zip"
-                )
-            else:
-                st.warning("⚠️ No hay certificados exitosos para descargar")
-
-        # === ZIP por bases, cargos y repetidos ===
-        st.write("---")
-        st.subheader("📂 Descargar ZIP por bases, cargos y repetidos")
+        # AGRUPAR POR BASE + CARGO
         if renombrados:
-            zip_bases_buffer = BytesIO()
-            with ZipFile(zip_bases_buffer, "w") as zipf:
-                certificados_guardados = {}
+            zip_bases = BytesIO()
+            with ZipFile(zip_bases, "w") as z:
                 for nombre, contenido in renombrados:
                     partes = nombre.split()
-                    base_actual = partes[0].upper()
-                    tipo_cargo = partes[2].upper()
-                    alumno = " ".join(partes[3:5]).upper()
-                    curso = " ".join(partes[1:2]).upper()
 
-                    carpeta_cargo = "RAMPA" if tipo_cargo == "OT" else "PAX"
-                    clave = (base_actual, curso, alumno)
+                    base = partes[0]
+                    tipo = partes[2]  # OT / SAP
+                    carpeta = "RAMPA" if tipo == "OT" else "PAX"
 
-                    if clave not in certificados_guardados:
-                        certificados_guardados[clave] = 0
-                    certificados_guardados[clave] += 1
+                    ruta = f"{base}/{carpeta}/{nombre}"
+                    z.writestr(ruta, contenido)
 
-                    if certificados_guardados[clave] == 1:
-                        ruta = f"{base_actual}/{carpeta_cargo}/{nombre}"
-                    else:
-                        ruta = f"REPETIDOS/{base_actual}/{carpeta_cargo}/{nombre}"
-
-                    zipf.writestr(ruta, contenido)
-
-            zip_bases_buffer.seek(0)
+            zip_bases.seek(0)
             st.download_button(
-                label="📂 Descargar ZIP por bases, cargos y repetidos",
-                data=zip_bases_buffer,
-                file_name="Certificados_Por_Base_y_Cargo.zip",
-                mime="application/zip"
+                "📂 Descargar ZIP organizado por BASE y CARGO",
+                zip_bases,
+                "Certificados_Por_Base_Cargo.zip"
             )
-        else:
-            st.warning("⚠️ No hay certificados para agrupar por bases y cargos")
-
-        # Mostrar errores
-        if errores > 0:
-            with st.expander(f"⚠️ Ver {errores} error(es)"):
-                df_errores = df_log[df_log['Estado'].str.startswith('ERROR')]
-                st.dataframe(df_errores, use_container_width=True)
