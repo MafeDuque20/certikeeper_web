@@ -80,22 +80,27 @@ def detectar_base(texto):
 # =========================
 def detectar_tipo(texto):
     texto = texto.upper()
+    
     claves_ot = [
         "OT", "OPERACIONES TERRESTRES",
         "AGENTE DE RAMPA", "OPERADOR DE RAMPA",
         "OPERARIO", "OPERACIÓN TERRESTRE"
     ]
+    
     claves_sap = [
         "SAP", "PAX", "PASAJEROS",
         "SERVICIO AL PASAJERO", "ATENCIÓN A PASAJEROS",
         "CHECK IN", "PASAJERO"
     ]
+    
     for palabra in claves_ot:
         if palabra in texto:
             return "OT"
+    
     for palabra in claves_sap:
         if palabra in texto:
             return "SAP"
+    
     return "SAP"
 
 # =========================
@@ -107,6 +112,7 @@ def detectar_nombre_con_flexibilidad(texto):
         r"NOMBRE\s+ALUMNO\s*:?[\s]*([A-Z\s]{5,})\s+IDENTIFICACIÓN",
         r"NOMBRE\s+DEL\s+ALUMNO\s*:?[\s]*([A-Z\s]{5,})"
     ]
+    
     for patron in patrones:
         coincidencias = re.findall(patron, texto)
         for match in coincidencias:
@@ -116,27 +122,31 @@ def detectar_nombre_con_flexibilidad(texto):
     return ""
 
 # =========================
-# EXTRAER SOLO PRIMER NOMBRE + PRIMER APELLIDO (MEJORADO)
+# EXTRAER SOLO PRIMER NOMBRE + PRIMER APELLIDO CORRECTO
 # =========================
 def extraer_primer_nombre_apellido(nombre_completo):
     if not nombre_completo:
         return None, None
+
     limpio = nombre_completo.replace("\n", " ").replace("-", " ")
     limpio = " ".join(limpio.split())
+    
     partes = limpio.split()
-    primer_nombre = None
+    if len(partes) < 2:
+        return None, None
+    
+    primer_nombre = partes[0]
+    
+    # Buscar primer apellido válido ignorando partículas
+    partículas = {"DE", "DEL", "DA", "Y"}
     primer_apellido = None
-    # Primer nombre válido
-    for palabra in partes:
-        if palabra not in palabras_invalidas:
-            primer_nombre = palabra
+    for i in range(1, len(partes)):
+        if partes[i].upper() not in partículas:
+            primer_apellido = partes[i]
             break
-    # Primer apellido válido después del primer nombre
-    if primer_nombre:
-        for palabra in partes[partes.index(primer_nombre)+1:]:
-            if palabra not in palabras_invalidas:
-                primer_apellido = palabra
-                break
+    if not primer_apellido:
+        primer_apellido = partes[1]
+    
     return primer_nombre, primer_apellido
 
 # =========================
@@ -145,35 +155,46 @@ def extraer_primer_nombre_apellido(nombre_completo):
 def extraer_info(pdf_bytes):
     texto = obtener_texto_con_ocr(pdf_bytes)
     base = detectar_base(texto)
+    
     # Detectar curso RAMPA PAX/OT
     curso_detectado = None
     for c in ["SEGURIDAD EN RAMPA PAX", "SEGURIDAD EN RAMPA OT"]:
         if c in texto:
             curso_detectado = c
             break
+
     if curso_detectado:
         tipo = ""  # No se usa tipo en este curso
         curso_final = curso_detectado
+
         nombre_completo = detectar_nombre_con_flexibilidad(texto)
         if not nombre_completo:
             return None, None, None, None, None, "ERROR: Sin nombre"
+
         primer_nombre, primer_apellido = extraer_primer_nombre_apellido(nombre_completo)
         if not primer_nombre or not primer_apellido:
             return None, None, None, None, None, "ERROR: Nombre inválido"
+
         base_ab = base_abrev.get(base, "XXX")
         nuevo_nombre = f"{base_ab} {curso_final} {primer_nombre} {primer_apellido}".upper() + ".pdf"
+
         return base_ab, curso_final, tipo, f"{primer_nombre} {primer_apellido}", nuevo_nombre, "✅"
+
     # Cursos normales
     curso = detectar_curso(texto)
     tipo = detectar_tipo(texto)
+
     nombre_completo = detectar_nombre_con_flexibilidad(texto)
     if not nombre_completo:
         return None, None, None, None, None, "ERROR: Sin nombre"
+
     primer_nombre, primer_apellido = extraer_primer_nombre_apellido(nombre_completo)
     if not primer_nombre or not primer_apellido:
         return None, None, None, None, None, "ERROR: Nombre inválido"
+
     base_ab = base_abrev.get(base, "XXX")
     nuevo_nombre = f"{base_ab} {curso} {tipo} {primer_nombre} {primer_apellido}".upper() + ".pdf"
+
     return base_ab, curso, tipo, f"{primer_nombre} {primer_apellido}", nuevo_nombre, "✅"
 
 # =========================
