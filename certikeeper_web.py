@@ -25,7 +25,8 @@ base_abrev = {
     "BARRANQUILLA": "BAQ",
     "BUCARAMANGA": "BGA",
     "SANTA MARTA": "SMR",
-    "CARTAGENA": "CTG"
+    "CARTAGENA": "CTG",
+    "PEI PEREIRA": "PEI"
 }
 
 cursos_validos = {
