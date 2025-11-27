@@ -6,13 +6,16 @@ from zipfile import ZipFile
 from io import BytesIO
 
 # =========================
-#     DICCIONARIOS BASE
+# DICCIONARIOS BASE
 # =========================
-
 base_abrev = {
-    "SAN ANDRES": "ADZ", "ARMENIA": "AXM", "CALI": "CLO",
-    "BARRANQUILLA": "BAQ", "BUCARAMANGA": "BGA",
-    "SANTA MARTA": "SMR", "CARTAGENA": "CTG"
+    "SAN ANDRES": "ADZ",
+    "ARMENIA": "AXM",
+    "CALI": "CLO",
+    "BARRANQUILLA": "BAQ",
+    "BUCARAMANGA": "BGA",
+    "SANTA MARTA": "SMR",
+    "CARTAGENA": "CTG"
 }
 
 cursos_validos = {
@@ -29,11 +32,10 @@ cursos_validos = {
     "PROCESOS PARA LA ATENCION DE AERONAVE": "PROCESOS PARA LA ATENCION DE AERONAVE"
 }
 
-palabras_invalidas = {"CARGO", "NEO", "AERO", "AGENTE", "SUPERVISOR",
-                      "COORDINADOR", "OPERADOR", "A", "PDE", "NEL", "EEE"}
+palabras_invalidas = {"CARGO", "NEO", "AERO", "AGENTE", "SUPERVISOR", "COORDINADOR", "OPERADOR", "A", "PDE", "NEL", "EEE"}
 
 # =========================
-#      OCR PDF
+# OCR PDF
 # =========================
 def obtener_texto_con_ocr(pdf_bytes):
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
@@ -44,7 +46,7 @@ def obtener_texto_con_ocr(pdf_bytes):
     return texto.upper()
 
 # =========================
-#   DETECCIÓN DE CURSO
+# DETECCIÓN DE CURSO
 # =========================
 def detectar_curso(texto):
     for linea in texto.splitlines():
@@ -54,7 +56,7 @@ def detectar_curso(texto):
     return "CURSO"
 
 # =========================
-#   DETECCIÓN DE BASE
+# DETECCIÓN DE BASE
 # =========================
 def detectar_base(texto):
     for base in base_abrev:
@@ -63,25 +65,36 @@ def detectar_base(texto):
     return "XXX"
 
 # =========================
-#   DETECCIÓN DE CARGO (OT / SAP)
+# DETECCIÓN DE CARGO (OT / SAP)
 # =========================
 def detectar_tipo(texto):
     texto = texto.upper()
-
-    claves_ot = ["OT", "OPERACIONES TERRESTRES", "RAMPA", "AGENTE DE RAMPA",
-                 "OPERADOR DE RAMPA", "OPERARIO", "OPERACIÓN TERRESTRE"]
-
-    claves_sap = ["SAP", "PAX", "PASAJEROS", "SERVICIO AL PASAJERO",
-                  "ATENCIÓN A PASAJEROS", "CHECK IN", "PASAJERO"]
-
+    
+    # Palabras clave fuertes OT
+    claves_ot = [
+        "OT", "OPERACIONES TERRESTRES", "RAMPA",
+        "AGENTE DE RAMPA", "OPERADOR DE RAMPA",
+        "OPERARIO", "OPERACIÓN TERRESTRE"
+    ]
+    
+    # Palabras clave fuertes SAP
+    claves_sap = [
+        "SAP", "PAX", "PASAJEROS",
+        "SERVICIO AL PASAJERO", "ATENCIÓN A PASAJEROS",
+        "CHECK IN", "PASAJERO"
+    ]
+    
+    # Detección OT
     for palabra in claves_ot:
         if palabra in texto:
             return "OT"
-
+    
+    # Detección SAP
     for palabra in claves_sap:
         if palabra in texto:
             return "SAP"
-
+    
+    # DEFAULT → SAP (porque SAP tiende a aparecer más en texto ambiguo)
     return "SAP"
 
 # =========================
@@ -93,6 +106,7 @@ def detectar_nombre_con_flexibilidad(texto):
         r"NOMBRE\s+ALUMNO\s*:?[\s]*([A-Z\s]{5,})\s+IDENTIFICACIÓN",
         r"NOMBRE\s+DEL\s+ALUMNO\s*:?[\s]*([A-Z\s]{5,})"
     ]
+    
     for patron in patrones:
         coincidencias = re.findall(patron, texto)
         for match in coincidencias:
@@ -104,8 +118,10 @@ def detectar_nombre_con_flexibilidad(texto):
 def extraer_primer_nombre_apellido(nombre_completo):
     palabras = nombre_completo.strip().split()
     palabras_limpias = [p for p in palabras if p.isalpha() and p not in palabras_invalidas]
+    
     if len(palabras_limpias) < 2:
         return None, None
+    
     if len(palabras_limpias) >= 4:
         return palabras_limpias[0], palabras_limpias[2]
     else:
@@ -116,27 +132,23 @@ def extraer_primer_nombre_apellido(nombre_completo):
 # =========================
 def extraer_info(pdf_bytes):
     texto = obtener_texto_con_ocr(pdf_bytes)
-
     base = detectar_base(texto)
     curso = detectar_curso(texto)
     tipo = detectar_tipo(texto)
+    
     nombre_completo = detectar_nombre_con_flexibilidad(texto)
-
     if not nombre_completo:
         return None, None, None, None, None, "ERROR: Sin nombre"
-
+    
     primer_nombre, primer_apellido = extraer_primer_nombre_apellido(nombre_completo)
     if not primer_nombre or not primer_apellido:
         return None, None, None, None, None, "ERROR: Nombre inválido"
-
+    
     base_ab = base_abrev.get(base, "XXX")
-
-    # ⚠️ CURSO SEGURIDAD EN RAMPA → no agregar PAX u OT al nombre
-    if "SEGURIDAD EN RAMPA" in curso:
-        nuevo_nombre = f"{base_ab} {curso} {tipo} {primer_nombre} {primer_apellido}".upper() + ".pdf"
-    else:
-        nuevo_nombre = f"{base_ab} {curso} {tipo} {primer_nombre} {primer_apellido}".upper() + ".pdf"
-
+    
+    # Crear nombre del archivo SIEMPRE con el tipo
+    nuevo_nombre = f"{base_ab} {curso} {tipo} {primer_nombre} {primer_apellido}".upper() + ".pdf"
+    
     return base_ab, curso, tipo, f"{primer_nombre} {primer_apellido}", nuevo_nombre, "✅"
 
 # =========================
@@ -182,7 +194,7 @@ def extraer_pdfs_de_archivos(uploaded_files):
     return pdfs_extraidos
 
 # =========================
-#      STREAMLIT UI
+# STREAMLIT UI
 # =========================
 st.title("RENOMBRAR CERTIFICADOS")
 st.write("Cada página del PDF se convertirá en un certificado individual.")
@@ -196,23 +208,22 @@ uploaded_files = st.file_uploader(
 if uploaded_files:
     st.info(f"Procesando {len(uploaded_files)} archivo(s)...")
     all_pdfs = extraer_pdfs_de_archivos(uploaded_files)
-
+    
     if not all_pdfs:
         st.error("❌ No se encontraron páginas PDF.")
     else:
         st.success(f"Se extrajeron {len(all_pdfs)} páginas.")
-
+        
         log = []
         renombrados = []
         errores = 0
-
+        
         progress = st.progress(0)
-
         for i, (nombre_original, pdf_bytes) in enumerate(all_pdfs):
             progress.progress((i+1)/len(all_pdfs))
-
+            
             base, curso, tipo, alumno, nuevo_nombre, estado = extraer_info(pdf_bytes)
-
+            
             if estado.startswith("ERROR"):
                 errores += 1
                 log.append({
@@ -225,9 +236,8 @@ if uploaded_files:
                     "Alumno": ""
                 })
                 continue
-
-            renombrados.append((nuevo_nombre, pdf_bytes))
-
+            
+            renombrados.append((nuevo_nombre, pdf_bytes, tipo))
             log.append({
                 "Página original": nombre_original,
                 "Estado": estado,
@@ -237,36 +247,41 @@ if uploaded_files:
                 "Tipo": tipo,
                 "Alumno": alumno
             })
-
+        
         st.write("### 📊 Resultados")
         st.dataframe(pd.DataFrame(log))
-
+        
         # DESCARGA ZIP PRINCIPAL
         if renombrados:
             zip_buffer = BytesIO()
             with ZipFile(zip_buffer, "w") as zipf:
-                for nombre, contenido in renombrados:
+                for nombre, contenido, _ in renombrados:
                     zipf.writestr(nombre, contenido)
             zip_buffer.seek(0)
+            
             st.download_button(
                 "📦 Descargar certificados renombrados",
                 data=zip_buffer,
                 file_name="certificados.zip"
             )
-
-        # AGRUPAR POR BASE + CARGO SEGÚN NOMBRE FINAL
+        
+        # AGRUPAR POR BASE + CARGO
         if renombrados:
             zip_bases = BytesIO()
             with ZipFile(zip_bases, "w") as z:
-                for nombre, contenido in renombrados:
-                    partes = nombre.split()
-                    base = partes[0]
-                    tipo = partes[-2]  # ⚠️ Usar OT/SAP desde nombre final
+                for nombre, contenido, tipo in renombrados:
+                    # Extraer la base del nombre del archivo (primeras 3 letras)
+                    base = nombre.split()[0]
+                    
+                    # Determinar carpeta según el tipo
                     carpeta = "RAMPA" if tipo == "OT" else "PAX"
+                    
+                    # Crear ruta dentro del ZIP
                     ruta = f"{base}/{carpeta}/{nombre}"
                     z.writestr(ruta, contenido)
-
+            
             zip_bases.seek(0)
+            
             st.download_button(
                 "📂 Descargar ZIP organizado por BASE y CARGO",
                 zip_bases,
