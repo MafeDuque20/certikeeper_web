@@ -4,6 +4,16 @@ import re
 import pandas as pd
 from zipfile import ZipFile
 from io import BytesIO
+from datetime import datetime
+
+# =========================
+# CONFIGURACIÓN DE PÁGINA
+# =========================
+st.set_page_config(
+    page_title="Renombrador de Certificados",
+    page_icon="📜",
+    layout="wide"
+)
 
 # =========================
 # DICCIONARIOS BASE
@@ -196,13 +206,62 @@ def extraer_pdfs_de_archivos(uploaded_files):
 # =========================
 # STREAMLIT UI
 # =========================
-st.title("RENOMBRAR CERTIFICADOS")
-st.write("Cada página del PDF se convertirá en un certificado individual.")
+
+# Header con estilo
+st.markdown("""
+    <h1 style='text-align: center; color: #1f77b4;'>
+        📜 RENOMBRADOR DE CERTIFICADOS
+    </h1>
+    <p style='text-align: center; color: #666; font-size: 1.1em;'>
+        Sistema automático de procesamiento y renombrado de certificados
+    </p>
+    <hr style='margin: 20px 0;'>
+""", unsafe_allow_html=True)
+
+# Información útil en sidebar
+with st.sidebar:
+    st.header("ℹ️ Información")
+    st.markdown("""
+    ### 📋 Bases disponibles:
+    - ADZ (San Andrés)
+    - AXM (Armenia)
+    - CLO (Cali)
+    - BAQ (Barranquilla)
+    - BGA (Bucaramanga)
+    - SMR (Santa Marta)
+    - CTG (Cartagena)
+    
+    ### 🎓 Tipos de cargo:
+    - **OT**: Operaciones Terrestres
+    - **SAP**: Servicio al Pasajero
+    
+    ### ✨ Características:
+    - ✅ Procesa PDFs individuales
+    - ✅ Procesa archivos ZIP
+    - ✅ Separa páginas automáticamente
+    - ✅ Detecta nombre, base y curso
+    - ✅ Genera reporte Excel
+    """)
+    
+    st.markdown("---")
+    st.info(f"**Fecha:** {datetime.now().strftime('%d/%m/%Y')}")
+
+# Área principal
+col1, col2 = st.columns([2, 1])
+
+with col1:
+    st.markdown("### 📂 Carga de archivos")
+    st.write("Sube uno o varios archivos PDF, o un archivo ZIP que contenga PDFs.")
+
+with col2:
+    st.markdown("### 📊 Estadísticas")
+    stat_placeholder = st.empty()
 
 uploaded_files = st.file_uploader(
-    "📂 Sube PDFs o ZIP con certificados",
+    "Arrastra o selecciona tus archivos",
     accept_multiple_files=True,
-    type=["pdf", "zip"]
+    type=["pdf", "zip"],
+    help="Puedes subir múltiples PDFs o archivos ZIP"
 )
 
 if uploaded_files:
