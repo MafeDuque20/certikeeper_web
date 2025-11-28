@@ -10,8 +10,8 @@ from datetime import datetime
 # CONFIGURACIÓN DE PÁGINA
 # =========================
 st.set_page_config(
-    page_title="Renombrador de Certificados",
-    page_icon="📜",
+    page_title="CertiKeeper Web",
+    page_icon="🔐",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -21,107 +21,181 @@ st.set_page_config(
 # =========================
 st.markdown("""
     <style>
-    /* Tema principal */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    
+    * {
+        font-family: 'Inter', sans-serif;
+    }
+    
     .main {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: #0a0a0a;
         padding: 2rem;
     }
     
-    /* Tarjetas con glassmorphism */
     .stApp {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: #0a0a0a;
     }
     
+    /* File Uploader */
     div[data-testid="stFileUploader"] {
-        background: rgba(255, 255, 255, 0.95);
-        border-radius: 15px;
+        background: #1a1a1a;
+        border-radius: 12px;
         padding: 2rem;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.3);
+        border: 2px solid #2a2a2a;
+        transition: all 0.3s ease;
     }
     
-    /* Botones mejorados */
+    div[data-testid="stFileUploader"]:hover {
+        border-color: #3a3a3a;
+        background: #1f1f1f;
+    }
+    
+    /* Botones */
     .stDownloadButton button {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
         color: white;
-        border: none;
-        border-radius: 10px;
-        padding: 0.75rem 2rem;
+        border: 1px solid #3a3a3a;
+        border-radius: 8px;
+        padding: 0.65rem 1.5rem;
         font-weight: 600;
-        font-size: 1rem;
-        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        font-size: 0.95rem;
         transition: all 0.3s ease;
         width: 100%;
     }
     
     .stDownloadButton button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        background: linear-gradient(135deg, #2d2d2d 0%, #3d3d3d 100%);
+        border-color: #4a4a4a;
+        transform: translateY(-1px);
     }
     
-    /* Sidebar mejorado */
+    /* Sidebar */
     section[data-testid="stSidebar"] {
-        background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(10px);
-        border-right: 1px solid rgba(255, 255, 255, 0.3);
+        background: #121212;
+        border-right: 1px solid #2a2a2a;
+    }
+    
+    section[data-testid="stSidebar"] > div {
+        background: #121212;
     }
     
     /* Títulos */
     h1 {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
+        color: white;
         font-weight: 800;
-        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        letter-spacing: -0.02em;
     }
     
-    /* DataFrame mejorado */
+    h2, h3 {
+        color: #e0e0e0;
+        font-weight: 700;
+    }
+    
+    /* DataFrame */
     .stDataFrame {
-        background: white;
-        border-radius: 10px;
-        padding: 1rem;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        background: #1a1a1a;
+        border-radius: 8px;
+        border: 1px solid #2a2a2a;
     }
     
     /* Métricas */
     div[data-testid="stMetricValue"] {
-        font-size: 2rem;
+        font-size: 1.8rem;
         font-weight: 700;
-        color: #667eea;
+        color: white;
     }
     
-    /* Info boxes */
-    .stAlert {
-        border-radius: 10px;
-        border-left: 4px solid #667eea;
-        background: rgba(255, 255, 255, 0.9);
+    div[data-testid="stMetricLabel"] {
+        color: #888;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
     }
     
     /* Progress bar */
     .stProgress > div > div {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border-radius: 10px;
+        background: linear-gradient(90deg, #1a1a1a 0%, #3a3a3a 100%);
+        border-radius: 4px;
     }
     
     /* Tabs */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 10px;
-        background: rgba(255, 255, 255, 0.9);
-        border-radius: 10px;
-        padding: 5px;
+        gap: 8px;
+        background: transparent;
+        border-bottom: 1px solid #2a2a2a;
     }
     
     .stTabs [data-baseweb="tab"] {
-        border-radius: 8px;
+        border-radius: 6px 6px 0 0;
         padding: 10px 20px;
         font-weight: 600;
+        color: #888;
+        background: transparent;
+        border: none;
     }
     
     .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: #1a1a1a;
         color: white;
+        border-bottom: 2px solid white;
+    }
+    
+    /* Expander */
+    .streamlit-expanderHeader {
+        background: #1a1a1a;
+        border-radius: 8px;
+        color: white;
+        font-weight: 600;
+    }
+    
+    .streamlit-expanderContent {
+        background: #151515;
+        border: 1px solid #2a2a2a;
+        border-top: none;
+    }
+    
+    /* Info boxes */
+    .stAlert {
+        background: #1a1a1a;
+        border: 1px solid #2a2a2a;
+        border-radius: 8px;
+        color: #ccc;
+    }
+    
+    /* Text inputs */
+    .stTextInput input {
+        background: #1a1a1a;
+        border: 1px solid #2a2a2a;
+        border-radius: 6px;
+        color: white;
+    }
+    
+    .stTextInput input:focus {
+        border-color: #3a3a3a;
+        box-shadow: 0 0 0 1px #3a3a3a;
+    }
+    
+    /* Multiselect */
+    .stMultiSelect {
+        background: #1a1a1a;
+    }
+    
+    /* Spinner */
+    .stSpinner > div {
+        border-top-color: white !important;
+    }
+    
+    /* Custom card */
+    .metric-card {
+        background: #1a1a1a;
+        border: 1px solid #2a2a2a;
+        border-radius: 8px;
+        padding: 1.5rem;
+        text-align: center;
+    }
+    
+    p, li, span {
+        color: #ccc;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -155,7 +229,7 @@ cursos_validos = {
 }
 
 # =========================
-# OCR PDF
+# FUNCIONES DE PROCESAMIENTO
 # =========================
 def obtener_texto_con_ocr(pdf_bytes):
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
@@ -163,9 +237,6 @@ def obtener_texto_con_ocr(pdf_bytes):
     doc.close()
     return texto.upper()
 
-# =========================
-# DETECCIÓN DE CURSO
-# =========================
 def detectar_curso(texto):
     for linea in texto.splitlines():
         for clave in cursos_validos:
@@ -173,18 +244,12 @@ def detectar_curso(texto):
                 return cursos_validos[clave]
     return "CURSO"
 
-# =========================
-# DETECCIÓN DE BASE
-# =========================
 def detectar_base(texto):
     for base in base_abrev:
         if base in texto:
             return base
     return "XXX"
 
-# =========================
-# DETECCIÓN DE CARGO
-# =========================
 def detectar_tipo(texto):
     texto = texto.upper()
     claves_ot = ["OT", "OPERACIONES TERRESTRES", "AGENTE DE RAMPA", "OPERADOR DE RAMPA", "OPERARIO", "OPERACIÓN TERRESTRE"]
@@ -197,9 +262,6 @@ def detectar_tipo(texto):
             return "SAP"
     return "SAP"
 
-# =========================
-# DETECCIÓN DE NOMBRE
-# =========================
 def detectar_nombre_con_flexibilidad(texto):
     patrones = [
         r"NOMBRE\s+DEL\s+ALUMNO\s*:?[\s]*([A-Z\s]{5,})\s+IDENTIFICACIÓN",
@@ -214,9 +276,6 @@ def detectar_nombre_con_flexibilidad(texto):
                 return posible
     return ""
 
-# =========================
-# EXTRAER PRIMER NOMBRE + PRIMER APELLIDO
-# =========================
 def extraer_primer_nombre_apellido(nombre_completo):
     if not nombre_completo: return None, None
     limpio = " ".join(nombre_completo.replace("\n"," ").replace("-"," ").split())
@@ -224,14 +283,10 @@ def extraer_primer_nombre_apellido(nombre_completo):
     if len(partes)<2: return None, None
     return partes[0], partes[1]
 
-# =========================
-# EXTRAER INFORMACIÓN
-# =========================
 def extraer_info(pdf_bytes):
     texto = obtener_texto_con_ocr(pdf_bytes)
     base = detectar_base(texto)
 
-    # Detectar curso RAMPA PAX/OT
     curso_detectado = None
     for c in ["SEGURIDAD EN RAMPA PAX", "SEGURIDAD EN RAMPA OT"]:
         if c in texto:
@@ -246,20 +301,16 @@ def extraer_info(pdf_bytes):
         return None, None, None, None, None, "ERROR: Nombre inválido"
     base_ab = base_abrev.get(base, "XXX")
 
-    if curso_detectado:  # RAMPA PAX/OT
+    if curso_detectado:
         nuevo_nombre = f"{base_ab} {curso_detectado} {primer_nombre} {primer_apellido}".upper() + ".pdf"
-        tipo = ""  # no se usa tipo
+        tipo = ""
         return base_ab, curso_detectado, tipo, f"{primer_nombre} {primer_apellido}", nuevo_nombre, "✅"
     
-    # Cursos normales
     curso = detectar_curso(texto)
     tipo = detectar_tipo(texto)
     nuevo_nombre = f"{base_ab} {curso} {tipo} {primer_nombre} {primer_apellido}".upper() + ".pdf"
     return base_ab, curso, tipo, f"{primer_nombre} {primer_apellido}", nuevo_nombre, "✅"
 
-# =========================
-# SEPARAR PDF EN PÁGINAS
-# =========================
 def separar_paginas_pdf(pdf_bytes, nombre_origen):
     paginas = []
     try:
@@ -274,12 +325,9 @@ def separar_paginas_pdf(pdf_bytes, nombre_origen):
             nuevo_doc.close()
         doc.close()
     except Exception as e:
-        st.warning(f"Error separando '{nombre_origen}': {str(e)}")
+        st.warning(f"Error: {nombre_origen}")
     return paginas
 
-# =========================
-# EXTRAER PDFs DE ZIP O PDF
-# =========================
 def extraer_pdfs_de_archivos(uploaded_files):
     pdfs = []
     for uploaded in uploaded_files:
@@ -296,12 +344,9 @@ def extraer_pdfs_de_archivos(uploaded_files):
                             nombre_base = nombre_archivo.replace(".pdf","")
                             pdfs.extend(separar_paginas_pdf(pdf_bytes, nombre_base))
             except Exception as e:
-                st.warning(f"Error ZIP '{uploaded.name}': {str(e)}")
+                st.warning(f"Error ZIP: {uploaded.name}")
     return pdfs
 
-# =========================
-# CREAR ZIP ORGANIZADO (con RAMPA PAX/OT e INSTRUCTORES)
-# =========================
 def crear_zip_organizado(renombrados_info):
     zip_buffer = BytesIO()
     with ZipFile(zip_buffer,"w") as zipf:
@@ -311,7 +356,6 @@ def crear_zip_organizado(renombrados_info):
             tipo = info["Cargo"].upper() if info["Cargo"] else ""
             base = info["Base"]
 
-            # Carpetas especiales
             if "INSTRUCTOR" in tipo:
                 carpeta_tipo = "INSTRUCTORES"
             elif "SEGURIDAD EN RAMPA PAX" in nuevo_nombre:
@@ -334,71 +378,44 @@ def crear_zip_organizado(renombrados_info):
 # =========================
 # STREAMLIT UI
 # =========================
-st.markdown("<h1 style='text-align:center;'>📜 RENOMBRADOR DE CERTIFICADOS</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align:center;color:white;font-size:1.2rem;'>Sistema automatizado de procesamiento y organización de certificados</p>", unsafe_allow_html=True)
-st.markdown("<hr style='border: 2px solid white; margin: 2rem 0;'>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align:center; margin-bottom: 0.5rem;'>🔐 CERTIKEEPER WEB</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align:center;color:#888;font-size:0.95rem; margin-bottom: 2rem;'>Sistema interno de gestión de certificados</p>", unsafe_allow_html=True)
 
 with st.sidebar:
-    st.markdown("### 🎯 Panel de Control")
+    st.markdown("### ⚙️ Sistema")
     st.markdown("---")
     
-    with st.expander("📍 Bases Disponibles", expanded=True):
-        cols = st.columns(2)
-        bases_list = list(base_abrev.items())
-        for idx, (ciudad, codigo) in enumerate(bases_list):
-            with cols[idx % 2]:
-                st.markdown(f"**{codigo}** - {ciudad}")
+    with st.expander("📍 Bases", expanded=False):
+        for ciudad, codigo in base_abrev.items():
+            st.markdown(f"`{codigo}` {ciudad}")
     
-    with st.expander("👥 Tipos de Cargo", expanded=True):
-        st.markdown("""
-        - **OT**: Operaciones Terrestres
-        - **SAP**: Servicio al Pasajero
-        - **INSTRUCTOR**: Personal docente
-        """)
-    
-    with st.expander("📚 Cursos Disponibles", expanded=False):
-        for curso in cursos_validos.values():
-            st.markdown(f"• {curso}")
+    with st.expander("👥 Cargos", expanded=False):
+        st.markdown("• **OT** - Operaciones\n• **SAP** - Pasajeros\n• **INSTRUCTOR** - Docente")
     
     st.markdown("---")
-    st.info(f"📅 **Fecha:** {datetime.now().strftime('%d/%m/%Y')}\n\n⏰ **Hora:** {datetime.now().strftime('%H:%M:%S')}")
-    
-    st.markdown("---")
-    st.markdown("### 💡 Ayuda")
-    st.markdown("""
-    **Formatos aceptados:**
-    - PDF individual
-    - Múltiples PDFs
-    - Archivos ZIP
-    
-    **Proceso:**
-    1. Sube tus archivos
-    2. Espera el procesamiento
-    3. Descarga resultados
-    """)
+    st.markdown(f"**{datetime.now().strftime('%d/%m/%Y')}** · {datetime.now().strftime('%H:%M')}")
 
-# Zona de carga de archivos
-st.markdown("<div style='background: rgba(255,255,255,0.95); padding: 2rem; border-radius: 15px; box-shadow: 0 8px 32px rgba(0,0,0,0.1);'>", unsafe_allow_html=True)
+# Zona de carga
+st.markdown("<div style='background: #1a1a1a; padding: 2rem; border-radius: 12px; border: 2px solid #2a2a2a;'>", unsafe_allow_html=True)
 uploaded_files = st.file_uploader(
-    "📤 Arrastra o selecciona tus archivos",
+    "Cargar archivos",
     accept_multiple_files=True,
     type=["pdf","zip"],
-    help="Puedes subir archivos PDF individuales o comprimidos en ZIP"
+    help="PDF o ZIP"
 )
 st.markdown("</div>", unsafe_allow_html=True)
 
 if uploaded_files:
     st.markdown("<br>", unsafe_allow_html=True)
     
-    with st.spinner("🔄 Procesando archivos..."):
+    with st.spinner("Procesando..."):
         all_pdfs = extraer_pdfs_de_archivos(uploaded_files)
     
     if not all_pdfs:
-        st.error("❌ No se encontraron PDFs válidos en los archivos subidos.")
+        st.error("No se encontraron PDFs válidos")
     else:
         log, renombrados_info, errores = [], [], 0
         
-        # Barra de progreso mejorada
         progress_container = st.container()
         with progress_container:
             progress_bar = st.progress(0)
@@ -406,86 +423,119 @@ if uploaded_files:
         
         for i, (nombre_original, pdf_bytes) in enumerate(all_pdfs):
             progress_bar.progress((i+1)/len(all_pdfs))
-            status_text.markdown(f"**Procesando:** {i+1}/{len(all_pdfs)} - `{nombre_original}`")
+            status_text.markdown(f"**{i+1}/{len(all_pdfs)}** `{nombre_original}`")
             
             base, curso, tipo, alumno, nuevo_nombre, estado = extraer_info(pdf_bytes)
             
             if estado.startswith("ERROR"):
                 errores += 1
-                log.append({"Página original": nombre_original,"Estado":estado})
+                log.append({"ID": len(log)+1, "Página original": nombre_original,"Estado":estado, "Nombre final": "", "Base": "", "Curso": "", "Tipo": "", "Alumno": ""})
                 continue
             
             renombrados_info.append({"Nombre final":nuevo_nombre,"Contenido":pdf_bytes,"Cargo":tipo,"Base":base})
-            log.append({"Página original":nombre_original,"Estado":estado,"Nombre final":nuevo_nombre,"Base":base,"Curso":curso,"Tipo":tipo,"Alumno":alumno})
+            log.append({"ID": len(log)+1, "Página original":nombre_original,"Estado":estado,"Nombre final":nuevo_nombre,"Base":base,"Curso":curso,"Tipo":tipo,"Alumno":alumno})
         
         progress_bar.empty()
         status_text.empty()
         
-        # Métricas con diseño mejorado
+        # Métricas
         st.markdown("<br>", unsafe_allow_html=True)
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            st.metric("📄 Total Procesados", len(all_pdfs))
+            st.metric("TOTAL", len(all_pdfs))
         with col2:
-            st.metric("✅ Exitosos", len(renombrados_info))
+            st.metric("EXITOSOS", len(renombrados_info))
         with col3:
-            st.metric("❌ Errores", errores)
+            st.metric("ERRORES", errores)
         with col4:
             tasa_exito = (len(renombrados_info)/len(all_pdfs)*100) if len(all_pdfs) > 0 else 0
-            st.metric("📊 Tasa de Éxito", f"{tasa_exito:.1f}%")
+            st.metric("TASA ÉXITO", f"{tasa_exito:.1f}%")
         
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # Tabs para organizar información
-        tab1, tab2, tab3 = st.tabs(["📋 Registro Completo", "📊 Estadísticas", "🔍 Filtros"])
+        # Tabs
+        tab1, tab2, tab3 = st.tabs(["📋 Registros", "📊 Estadísticas", "✏️ Editor"])
         
         with tab1:
-            st.markdown("### Detalle del Procesamiento")
             df_log = pd.DataFrame(log)
-            st.dataframe(df_log, use_container_width=True, height=400)
+            st.dataframe(df_log, use_container_width=True, height=400, hide_index=True)
         
         with tab2:
             if renombrados_info:
-                st.markdown("### Distribución por Base")
                 df_stats = pd.DataFrame(renombrados_info)
                 base_counts = df_stats['Base'].value_counts()
-                col_a, col_b = st.columns(2)
+                col_a, col_b = st.columns([2, 1])
                 with col_a:
                     st.bar_chart(base_counts)
                 with col_b:
                     for base, count in base_counts.items():
-                        st.metric(f"Base {base}", count)
+                        st.metric(f"{base}", count)
         
         with tab3:
-            st.markdown("### Filtrar Resultados")
-            df_log = pd.DataFrame(log)
+            st.markdown("### Filtrar y Editar")
+            df_edit = pd.DataFrame(log)
             
             col_f1, col_f2 = st.columns(2)
             with col_f1:
-                if 'Base' in df_log.columns:
-                    bases_filter = st.multiselect("Filtrar por Base", df_log['Base'].unique())
+                if 'Base' in df_edit.columns:
+                    bases_filter = st.multiselect("Base", df_edit['Base'].unique())
                     if bases_filter:
-                        df_log = df_log[df_log['Base'].isin(bases_filter)]
+                        df_edit = df_edit[df_edit['Base'].isin(bases_filter)]
             
             with col_f2:
-                if 'Curso' in df_log.columns:
-                    cursos_filter = st.multiselect("Filtrar por Curso", df_log['Curso'].unique())
+                if 'Curso' in df_edit.columns:
+                    cursos_filter = st.multiselect("Curso", df_edit['Curso'].unique())
                     if cursos_filter:
-                        df_log = df_log[df_log['Curso'].isin(cursos_filter)]
+                        df_edit = df_edit[df_edit['Curso'].isin(cursos_filter)]
             
-            st.dataframe(df_log, use_container_width=True, height=300)
+            st.markdown("#### Editar Nombres")
+            st.info("💡 Haz clic en una celda de 'Nombre final' para editarla")
+            
+            # Editor de datos
+            edited_df = st.data_editor(
+                df_edit,
+                use_container_width=True,
+                height=350,
+                hide_index=True,
+                column_config={
+                    "ID": st.column_config.NumberColumn("ID", disabled=True, width="small"),
+                    "Página original": st.column_config.TextColumn("Original", disabled=True),
+                    "Estado": st.column_config.TextColumn("Estado", disabled=True, width="small"),
+                    "Nombre final": st.column_config.TextColumn("Nombre Final", width="large"),
+                    "Base": st.column_config.TextColumn("Base", disabled=True, width="small"),
+                    "Curso": st.column_config.TextColumn("Curso", disabled=True),
+                    "Tipo": st.column_config.TextColumn("Tipo", disabled=True, width="small"),
+                    "Alumno": st.column_config.TextColumn("Alumno", disabled=True)
+                },
+                disabled=["ID", "Página original", "Estado", "Base", "Curso", "Tipo", "Alumno"]
+            )
+            
+            # Actualizar renombrados_info con los cambios
+            if not edited_df.equals(df_edit):
+                st.success("✅ Cambios detectados")
+                
+                # Actualizar los nombres en renombrados_info
+                for idx, row in edited_df.iterrows():
+                    if row["Estado"] == "✅":
+                        # Buscar el índice correspondiente en renombrados_info
+                        original_name = row["Nombre final"]
+                        for i, info in enumerate(renombrados_info):
+                            # Comparar por alumno y base para identificar el registro correcto
+                            if (info["Base"] == row["Base"] and 
+                                row["Alumno"] in info["Nombre final"]):
+                                renombrados_info[i]["Nombre final"] = row["Nombre final"]
+                                break
         
         st.markdown("<br>", unsafe_allow_html=True)
         
-        # Botones de descarga mejorados
-        st.markdown("### 📥 Descargar Resultados")
+        # Botones de descarga
         col1, col2 = st.columns(2)
         
         with col1:
             zip_buffer = crear_zip_organizado(renombrados_info)
             st.download_button(
-                "📦 Descargar ZIP Organizado",
+                "📦 Descargar ZIP",
                 zip_buffer,
                 file_name=f"certificados_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip",
                 mime="application/zip",
@@ -495,10 +545,12 @@ if uploaded_files:
         with col2:
             excel_buffer = BytesIO()
             with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
-                pd.DataFrame(log).to_excel(writer,index=False,sheet_name="Reporte")
+                # Usar edited_df si existe, sino df_log
+                final_df = edited_df if 'edited_df' in locals() else pd.DataFrame(log)
+                final_df.to_excel(writer,index=False,sheet_name="Reporte")
             excel_buffer.seek(0)
             st.download_button(
-                "📊 Descargar Reporte Excel",
+                "📊 Descargar Excel",
                 excel_buffer,
                 file_name=f"reporte_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -506,15 +558,11 @@ if uploaded_files:
             )
 
 else:
-    # Estado inicial con instrucciones
     st.markdown("""
-    <div style='background: rgba(255,255,255,0.9); padding: 3rem; border-radius: 15px; text-align: center; margin-top: 2rem;'>
-        <h2 style='color: #667eea;'>👋 ¡Bienvenido!</h2>
-        <p style='font-size: 1.2rem; color: #666;'>
-            Comienza subiendo tus archivos PDF o ZIP en el área superior
-        </p>
-        <p style='color: #888;'>
-            El sistema procesará automáticamente todos los certificados y los organizará por base y tipo de cargo
+    <div style='background: #1a1a1a; padding: 3rem; border-radius: 12px; text-align: center; margin-top: 2rem; border: 1px solid #2a2a2a;'>
+        <h2 style='color: white; margin-bottom: 1rem;'>Comienza aquí</h2>
+        <p style='font-size: 1rem; color: #888;'>
+            Sube archivos PDF o ZIP para procesarlos automáticamente
         </p>
     </div>
     """, unsafe_allow_html=True)
