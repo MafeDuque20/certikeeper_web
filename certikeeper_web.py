@@ -286,64 +286,71 @@ def detectar_nombre_con_flexibilidad(texto):
     return ""
 
 def extraer_primer_nombre_apellido(nombre_completo):
-    if not nombre_completo: return None, None
-    limpio = " ".join(nombre_completo.replace("\n"," ").replace("-"," ").split())
-    partes = limpio.split()
-    if len(partes)<2: return None, None
+    if not nombre_completo: 
+        return None, None
     
-    # Partículas a ignorar (que no son apellidos)
-    particulas = ["DE", "DEL", "DE LOS", "DE LA", "Y", "LA", "LAS", "LOS"]
+    # Limpiar el nombre: eliminar saltos de línea, guiones y espacios múltiples
+    limpio = " ".join(nombre_completo.replace("\n", " ").replace("-", " ").split())
+    partes_originales = limpio.split()
     
-    # Lista de nombres compuestos comunes (estos NO son apellidos)
-    nombres_compuestos = [
-        "MARIA", "JOSE", "JUAN", "LUIS", "CARLOS", "JORGE", "JESUS", 
-        "FRANCISCO", "MIGUEL", "ANGEL", "PEDRO", "DANIEL", "DAVID",
-        "FERNANDO", "PABLO", "RAFAEL", "JAVIER", "ANTONIO", "MANUEL",
-        "RICARDO", "ROBERTO", "SANTIAGO", "ANDRES", "DIEGO", "ALEJANDRO",
-        "ANA", "CARMEN", "ROSA", "LUZ", "SOL", "ALBA", "CLARA", "SOFIA",
-        "Isabel", "LUCIA", "PAULA", "CLAUDIA", "PATRICIA", "MONICA",
-        "GLORIA", "TERESA", "ADRIANA", "NATALIA", "CRISTINA", "BEATRIZ"
-    ]
+    if len(partes_originales) < 2: 
+        return None, None
     
-    # PASO 1: Tomar SOLO el primer nombre (índice 0)
-    primer_nombre = partes[0]
+    # Stopwords/partículas que NO son nombres ni apellidos
+    stopwords = ["DE", "DEL", "DE LOS", "DE LAS", "DE LA", "Y", "LA", "LAS", "LOS", "EL"]
     
-    # PASO 2: Buscar el primer apellido real empezando desde la posición 1
-    # Saltamos nombres compuestos y partículas
-    primer_apellido = None
-    i = 1
-    
-    while i < len(partes):
-        palabra_actual = partes[i]
+    # PASO 1: Filtrar stopwords para obtener solo nombres y apellidos reales
+    partes_filtradas = []
+    i = 0
+    while i < len(partes_originales):
+        palabra_actual = partes_originales[i]
         
-        # Verificar si es una partícula de 2 palabras (DE LOS, DE LA)
-        if i < len(partes) - 1:
-            dos_palabras = f"{palabra_actual} {partes[i+1]}"
-            if dos_palabras in particulas:
+        # Verificar combinaciones de 2 palabras (DE LOS, DE LA, etc.)
+        if i < len(partes_originales) - 1:
+            combinacion = f"{palabra_actual} {partes_originales[i+1]}"
+            if combinacion in stopwords:
                 i += 2  # Saltar ambas palabras
                 continue
         
-        # Verificar si es una partícula de 1 palabra
-        if palabra_actual in particulas:
-            i += 1
-            continue
+        # Verificar palabra individual
+        if palabra_actual not in stopwords:
+            partes_filtradas.append(palabra_actual)
         
-        # Verificar si es un nombre compuesto (segundo nombre)
-        if palabra_actual in nombres_compuestos:
-            i += 1
-            continue
-        
-        # Si llegamos aquí, es el primer apellido real
-        primer_apellido = palabra_actual
-        break
+        i += 1
     
-    # Fallback: si no se encontró apellido después de filtros, usar la última palabra disponible
-    if not primer_apellido and len(partes) > 1:
-        # Tomar la última palabra que no sea partícula
-        for j in range(len(partes) - 1, 0, -1):
-            if partes[j] not in particulas:
-                primer_apellido = partes[j]
-                break
+    # Verificar que tengamos al menos 2 palabras después del filtrado
+    if len(partes_filtradas) < 2:
+        return None, None
+    
+    # PASO 2: Aplicar reglas basadas en la estructura típica de nombres españoles
+    # Estructura común: [Nombre] [Segundo Nombre] [Primer Apellido] [Segundo Apellido]
+    
+    num_palabras = len(partes_filtradas)
+    primer_nombre = partes_filtradas[0]
+    primer_apellido = None
+    
+    if num_palabras == 2:
+        # Caso: [Nombre] [Apellido]
+        primer_apellido = partes_filtradas[1]
+    
+    elif num_palabras == 3:
+        # Caso: [Nombre] [Segundo Nombre] [Apellido]
+        # o bien: [Nombre] [Apellido1] [Apellido2]
+        # Tomamos la segunda palabra como primer apellido (heurística más común)
+        primer_apellido = partes_filtradas[1]
+    
+    elif num_palabras == 4:
+        # Caso típico: [Nombre] [Segundo Nombre] [Apellido1] [Apellido2]
+        # El primer apellido está en la tercera posición (índice 2)
+        primer_apellido = partes_filtradas[2]
+    
+    else:
+        # Caso con 5+ palabras (nombres muy largos o múltiples apellidos)
+        # Heurística: el primer apellido suele estar en la mitad o después
+        # Estrategia: tomar la palabra en la posición [num_palabras // 2]
+        # Esto balancea entre nombres compuestos largos y apellidos
+        indice_apellido = min(num_palabras // 2, num_palabras - 2)
+        primer_apellido = partes_filtradas[indice_apellido]
     
     return primer_nombre, primer_apellido
 
