@@ -291,32 +291,59 @@ def extraer_primer_nombre_apellido(nombre_completo):
     partes = limpio.split()
     if len(partes)<2: return None, None
     
-    # Partículas a ignorar
+    # Partículas a ignorar (que no son apellidos)
     particulas = ["DE", "DEL", "DE LOS", "DE LA", "Y", "LA", "LAS", "LOS"]
     
-    # Primer nombre
+    # Lista de nombres compuestos comunes (estos NO son apellidos)
+    nombres_compuestos = [
+        "MARIA", "JOSE", "JUAN", "LUIS", "CARLOS", "JORGE", "JESUS", 
+        "FRANCISCO", "MIGUEL", "ANGEL", "PEDRO", "DANIEL", "DAVID",
+        "FERNANDO", "PABLO", "RAFAEL", "JAVIER", "ANTONIO", "MANUEL",
+        "RICARDO", "ROBERTO", "SANTIAGO", "ANDRES", "DIEGO", "ALEJANDRO",
+        "ANA", "CARMEN", "ROSA", "LUZ", "SOL", "ALBA", "CLARA", "SOFIA",
+        "Isabel", "LUCIA", "PAULA", "CLAUDIA", "PATRICIA", "MONICA",
+        "GLORIA", "TERESA", "ADRIANA", "NATALIA", "CRISTINA", "BEATRIZ"
+    ]
+    
+    # PASO 1: Tomar SOLO el primer nombre (índice 0)
     primer_nombre = partes[0]
     
-    # Buscar primer apellido real (ignorando partículas)
+    # PASO 2: Buscar el primer apellido real empezando desde la posición 1
+    # Saltamos nombres compuestos y partículas
     primer_apellido = None
-    for i in range(1, len(partes)):
+    i = 1
+    
+    while i < len(partes):
+        palabra_actual = partes[i]
+        
         # Verificar si es una partícula de 2 palabras (DE LOS, DE LA)
         if i < len(partes) - 1:
-            dos_palabras = f"{partes[i]} {partes[i+1]}"
+            dos_palabras = f"{palabra_actual} {partes[i+1]}"
             if dos_palabras in particulas:
+                i += 2  # Saltar ambas palabras
                 continue
         
         # Verificar si es una partícula de 1 palabra
-        if partes[i] in particulas:
+        if palabra_actual in particulas:
+            i += 1
             continue
         
-        # Si no es partícula, es el primer apellido
-        primer_apellido = partes[i]
+        # Verificar si es un nombre compuesto (segundo nombre)
+        if palabra_actual in nombres_compuestos:
+            i += 1
+            continue
+        
+        # Si llegamos aquí, es el primer apellido real
+        primer_apellido = palabra_actual
         break
     
-    # Fallback: si no se encontró apellido, usar segunda palabra
-    if not primer_apellido:
-        primer_apellido = partes[1] if len(partes) > 1 else None
+    # Fallback: si no se encontró apellido después de filtros, usar la última palabra disponible
+    if not primer_apellido and len(partes) > 1:
+        # Tomar la última palabra que no sea partícula
+        for j in range(len(partes) - 1, 0, -1):
+            if partes[j] not in particulas:
+                primer_apellido = partes[j]
+                break
     
     return primer_nombre, primer_apellido
 
