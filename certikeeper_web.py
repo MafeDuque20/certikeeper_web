@@ -10,7 +10,7 @@ from datetime import datetime
 # CONFIGURACIÓN DE PÁGINA
 # =========================
 st.set_page_config(
-    page_title="CertiKeeper Web",
+    page_title="f Web",
     page_icon="🔐",
     layout="wide",
     initial_sidebar_state="expanded"
