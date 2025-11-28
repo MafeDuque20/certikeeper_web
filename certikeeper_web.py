@@ -159,7 +159,7 @@ st.markdown("""
         background: #1a1a1a;
         border: 1px solid #2a2a2a;
         border-radius: 8px;
-        color: #ccc;
+        color: #f0f0f0;
     }
     
     /* Text inputs */
@@ -195,16 +195,21 @@ st.markdown("""
     }
     
     p, li, span {
-        color: #e0e0e0;
+        color: #f5f5f5;
     }
     
     /* Mejorar legibilidad de textos */
     .stMarkdown, .stText {
-        color: #f0f0f0;
+        color: #ffffff;
     }
     
     label {
-        color: #f0f0f0 !important;
+        color: #ffffff !important;
+    }
+    
+    /* Multiselect text */
+    div[data-baseweb="select"] span {
+        color: #ffffff !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -358,25 +363,31 @@ def extraer_pdfs_de_archivos(uploaded_files):
 
 def crear_zip_organizado(renombrados_info):
     zip_buffer = BytesIO()
-    certificados_vistos = {}  # Dict para rastrear certificados únicos
+    certificados_vistos = {}  # Dict para rastrear certificados únicos: clave -> índice en renombrados_info
     
     with ZipFile(zip_buffer,"w") as zipf:
-        for info in renombrados_info:
+        for idx, info in enumerate(renombrados_info):
             nuevo_nombre = info["Nombre final"]
             pdf_bytes = info["Contenido"]
             tipo = info["Cargo"].upper() if info["Cargo"] else ""
             base = info["Base"]
             alumno = info.get("Alumno", "")
             
-            # Crear clave única para detectar duplicados (nombre completo + cargo + base)
-            clave_unica = f"{alumno}_{tipo}_{base}".upper()
+            # Crear clave única para detectar duplicados (alumno + tipo + base)
+            # Limpiar espacios extras y normalizar
+            alumno_limpio = " ".join(alumno.strip().split()).upper()
+            tipo_limpio = tipo.strip().upper()
+            base_limpio = base.strip().upper()
+            clave_unica = f"{alumno_limpio}|{tipo_limpio}|{base_limpio}"
             
             # Verificar si es duplicado
             es_duplicado = False
             if clave_unica in certificados_vistos:
                 es_duplicado = True
+                # Marcar el actual como duplicado
             else:
-                certificados_vistos[clave_unica] = True
+                # Guardar el índice del primer certificado con esta clave
+                certificados_vistos[clave_unica] = idx
 
             # Determinar carpeta de destino
             if es_duplicado:
