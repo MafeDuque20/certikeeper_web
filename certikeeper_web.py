@@ -358,44 +358,45 @@ def extraer_pdfs_de_archivos(uploaded_files):
 
 def crear_zip_organizado(renombrados_info):
     zip_buffer = BytesIO()
-    certificados_vistos = {}  # Dict para rastrear certificados únicos
+    certificados_vistos = {}  # Dict para rastrear certificados únicos por clave
     
-    with ZipFile(zip_buffer,"w") as zipf:
+    with ZipFile(zip_buffer, "w") as zipf:
         for info in renombrados_info:
             nuevo_nombre = info["Nombre final"]
             pdf_bytes = info["Contenido"]
             tipo = info["Cargo"].upper() if info["Cargo"] else ""
             base = info["Base"]
-            alumno = info.get("Alumno", "")
+            alumno = info.get("Alumno", "").strip().upper()
+            curso = info.get("Curso", "").strip().upper()
             
-            # Crear clave única para detectar duplicados (nombre completo + cargo + base)
-            clave_unica = f"{alumno}_{tipo}_{base}".upper()
+            # Crear clave única combinando: alumno + base + curso
+            # Esto detecta duplicados de la misma persona, ciudad y curso
+            clave_unica = f"{alumno}_{base}_{curso}"
             
-            # Verificar si es duplicado
-            es_duplicado = False
-            if clave_unica in certificados_vistos:
-                es_duplicado = True
-            else:
-                certificados_vistos[clave_unica] = True
-
-            # Determinar carpeta de destino
-            if es_duplicado:
-                carpeta_tipo = "Repetidos"
-            elif "INSTRUCTOR" in tipo:
-                carpeta_tipo = "INSTRUCTORES"
+            # Determinar carpeta base según tipo/curso
+            if "INSTRUCTOR" in tipo:
+                carpeta_base = "INSTRUCTORES"
             elif "SEGURIDAD EN RAMPA PAX" in nuevo_nombre:
-                carpeta_tipo = "PAX"
+                carpeta_base = "PAX"
             elif "SEGURIDAD EN RAMPA OT" in nuevo_nombre:
-                carpeta_tipo = "RAMPA"
+                carpeta_base = "RAMPA"
             elif tipo == "OT":
-                carpeta_tipo = "RAMPA"
+                carpeta_base = "RAMPA"
             elif tipo == "SAP":
-                carpeta_tipo = "PAX"
+                carpeta_base = "PAX"
             else:
-                carpeta_tipo = "OTROS"
-
-            ruta_zip = f"{base}/{carpeta_tipo}/{nuevo_nombre}"
-            zipf.writestr(ruta_zip, pdf_bytes)
+                carpeta_base = "OTROS"
+            
+            # Primera aparición: guardar en carpeta normal
+            if clave_unica not in certificados_vistos:
+                certificados_vistos[clave_unica] = True
+                ruta_zip = f"{base}/{carpeta_base}/{nuevo_nombre}"
+                zipf.writestr(ruta_zip, pdf_bytes)
+            
+            # Segunda aparición en adelante: guardar en carpeta Repetidos
+            else:
+                ruta_zip = f"{base}/Repetidos/{nuevo_nombre}"
+                zipf.writestr(ruta_zip, pdf_bytes)
 
     zip_buffer.seek(0)
     return zip_buffer
@@ -457,7 +458,7 @@ if uploaded_files:
                 log.append({"ID": len(log)+1, "Página original": nombre_original,"Estado":estado, "Nombre final": "", "Base": "", "Curso": "", "Tipo": "", "Alumno": ""})
                 continue
             
-            renombrados_info.append({"Nombre final":nuevo_nombre,"Contenido":pdf_bytes,"Cargo":tipo,"Base":base,"Alumno":alumno})
+            renombrados_info.append({"Nombre final":nuevo_nombre,"Contenido":pdf_bytes,"Cargo":tipo,"Base":base,"Alumno":alumno,"Curso":curso})
             log.append({"ID": len(log)+1, "Página original":nombre_original,"Estado":estado,"Nombre final":nuevo_nombre,"Base":base,"Curso":curso,"Tipo":tipo,"Alumno":alumno})
         
         progress_bar.empty()
