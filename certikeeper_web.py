@@ -290,7 +290,35 @@ def extraer_primer_nombre_apellido(nombre_completo):
     limpio = " ".join(nombre_completo.replace("\n"," ").replace("-"," ").split())
     partes = limpio.split()
     if len(partes)<2: return None, None
-    return partes[0], partes[1]
+    
+    # Partículas a ignorar
+    particulas = ["DE", "DEL", "DE LOS", "DE LA", "Y", "LA", "LAS", "LOS"]
+    
+    # Primer nombre
+    primer_nombre = partes[0]
+    
+    # Buscar primer apellido real (ignorando partículas)
+    primer_apellido = None
+    for i in range(1, len(partes)):
+        # Verificar si es una partícula de 2 palabras (DE LOS, DE LA)
+        if i < len(partes) - 1:
+            dos_palabras = f"{partes[i]} {partes[i+1]}"
+            if dos_palabras in particulas:
+                continue
+        
+        # Verificar si es una partícula de 1 palabra
+        if partes[i] in particulas:
+            continue
+        
+        # Si no es partícula, es el primer apellido
+        primer_apellido = partes[i]
+        break
+    
+    # Fallback: si no se encontró apellido, usar segunda palabra
+    if not primer_apellido:
+        primer_apellido = partes[1] if len(partes) > 1 else None
+    
+    return primer_nombre, primer_apellido
 
 def extraer_info(pdf_bytes):
     texto = obtener_texto_con_ocr(pdf_bytes)
