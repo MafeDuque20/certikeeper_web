@@ -195,7 +195,16 @@ st.markdown("""
     }
     
     p, li, span {
-        color: #ccc;
+        color: #e0e0e0;
+    }
+    
+    /* Mejorar legibilidad de textos */
+    .stMarkdown, .stText {
+        color: #f0f0f0;
+    }
+    
+    label {
+        color: #f0f0f0 !important;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -349,14 +358,30 @@ def extraer_pdfs_de_archivos(uploaded_files):
 
 def crear_zip_organizado(renombrados_info):
     zip_buffer = BytesIO()
+    certificados_vistos = {}  # Dict para rastrear certificados únicos
+    
     with ZipFile(zip_buffer,"w") as zipf:
         for info in renombrados_info:
             nuevo_nombre = info["Nombre final"]
             pdf_bytes = info["Contenido"]
             tipo = info["Cargo"].upper() if info["Cargo"] else ""
             base = info["Base"]
+            alumno = info.get("Alumno", "")
+            
+            # Crear clave única para detectar duplicados (nombre completo + cargo + base)
+            clave_unica = f"{alumno}_{tipo}_{base}".upper()
+            
+            # Verificar si es duplicado
+            es_duplicado = False
+            if clave_unica in certificados_vistos:
+                es_duplicado = True
+            else:
+                certificados_vistos[clave_unica] = True
 
-            if "INSTRUCTOR" in tipo:
+            # Determinar carpeta de destino
+            if es_duplicado:
+                carpeta_tipo = "Repetidos"
+            elif "INSTRUCTOR" in tipo:
                 carpeta_tipo = "INSTRUCTORES"
             elif "SEGURIDAD EN RAMPA PAX" in nuevo_nombre:
                 carpeta_tipo = "PAX"
@@ -432,7 +457,7 @@ if uploaded_files:
                 log.append({"ID": len(log)+1, "Página original": nombre_original,"Estado":estado, "Nombre final": "", "Base": "", "Curso": "", "Tipo": "", "Alumno": ""})
                 continue
             
-            renombrados_info.append({"Nombre final":nuevo_nombre,"Contenido":pdf_bytes,"Cargo":tipo,"Base":base})
+            renombrados_info.append({"Nombre final":nuevo_nombre,"Contenido":pdf_bytes,"Cargo":tipo,"Base":base,"Alumno":alumno})
             log.append({"ID": len(log)+1, "Página original":nombre_original,"Estado":estado,"Nombre final":nuevo_nombre,"Base":base,"Curso":curso,"Tipo":tipo,"Alumno":alumno})
         
         progress_bar.empty()
