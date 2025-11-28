@@ -414,7 +414,7 @@ def crear_zip_organizado(renombrados_info):
 # =========================
 # STREAMLIT UI
 # =========================
-st.markdown("<h1 style='text-align:center; margin-bottom: 0.5rem;'>🔐 CERTIKEEPER WEB</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align:center; margin-bottom: 0.5rem;'>🔐 hB</h1>", unsafe_allow_html=True)
 st.markdown("<p style='text-align:center;color:#888;font-size:0.95rem; margin-bottom: 2rem;'>Sistema interno de gestión de certificados</p>", unsafe_allow_html=True)
 
 with st.sidebar:
