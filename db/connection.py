@@ -6,9 +6,9 @@ load_dotenv()
 
 def get_connection():
     return psycopg2.connect(
-        host=os.getenv("db.zbbsgshqfsdzflqogssn.supabase.co"),       # Endpoint de Supabase
-        database=os.getenv("postgres"),   # Nombre de la base de datos
-        user=os.getenv("postgres"),       # Usuario de Supabase
-        password=os.getenv("mmTMk9Zl7Dsbnqb1"), # Contraseña
-        port=5432
+        host=os.getenv("DB_HOST"),
+        database=os.getenv("DB_NAME"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+        port=os.getenv("DB_PORT", 5432)
     )
