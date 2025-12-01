@@ -4,3 +4,5 @@ openpyxl
 pandas
 python-dotenv
 supabase-py
+python-dotenv
+psycopg2
