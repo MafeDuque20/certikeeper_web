@@ -3,13 +3,14 @@
 
 #create_tables()
 
-import streamlit as st
-import fitz
-import re
-import pandas as pd
-from zipfile import ZipFile
-from io import BytesIO
-from datetime import datetime
+if __name__ == "__main__":
+    import streamlit as st
+    import fitz
+    import re
+    import pandas as pd
+    from zipfile import ZipFile
+    from io import BytesIO
+    from datetime import datetime
 
 # =========================
 # CONFIGURACIÓN DE PÁGINA
