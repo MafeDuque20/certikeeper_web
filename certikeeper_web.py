@@ -1,5 +1,5 @@
-from db.models import create_tables
-from db.queries import registrar_envio, obtener_historial
+#from db.models import create_tables
+#from db.queries import registrar_envio, obtener_historial
 
 create_tables()
 
