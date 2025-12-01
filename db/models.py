@@ -3,7 +3,6 @@ from db.connection import get_connection
 def create_tables():
     conn = get_connection()
     cursor = conn.cursor()
-
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS historial (
             id SERIAL PRIMARY KEY,
@@ -13,7 +12,6 @@ def create_tables():
             fecha_envio TIMESTAMP
         );
     """)
-
     conn.commit()
     cursor.close()
     conn.close()
