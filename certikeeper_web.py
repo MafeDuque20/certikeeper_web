@@ -1,3 +1,8 @@
+from db.models import create_tables
+from db.queries import registrar_envio, obtener_historial
+
+create_tables()
+
 import streamlit as st
 import fitz
 import re
