@@ -3,5 +3,4 @@ pymupdf
 openpyxl
 pandas
 python-dotenv
-supabase-py
-psycopg2
+
