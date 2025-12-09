@@ -295,44 +295,55 @@ def detectar_nombre_con_flexibilidad(texto):
     return ""
 
 def extraer_primer_nombre_apellido(nombre_completo):
-    if not nombre_completo: return None, None
-    limpio = " ".join(nombre_completo.replace("\n"," ").replace("-"," ").split())
+    """
+    Extrae el primer nombre y primer apellido de un nombre completo.
+    Maneja nombres compuestos, partículas y casos edge.
+    """
+    if not nombre_completo: 
+        return None, None
+    
+    # Limpiar el texto
+    limpio = " ".join(nombre_completo.replace("\n", " ").replace("-", " ").split())
     partes = limpio.split()
-    if len(partes)<2: return None, None
     
-    # Partículas a ignorar (que no son apellidos)
-    particulas = ["DE", "DEL", "DE LOS", "DE LA", "Y", "LA", "LAS", "LOS"]
+    # Validar que hay al menos 2 palabras
+    if len(partes) < 2: 
+        return None, None
     
-    # Lista de nombres compuestos comunes (estos NO son apellidos)
-    nombres_compuestos = [
+    # Partículas que indican que la siguiente palabra es parte del apellido (usar set para O(1))
+    particulas = {"DE", "DEL", "DE LOS", "DE LA", "Y", "LA", "LAS", "LOS", "VAN", "VON", "MC", "MAC"}
+    
+    # Nombres compuestos comunes que NO son apellidos (usar set para O(1))
+    nombres_compuestos = {
         "MARIA", "JOSE", "JUAN", "LUIS", "CARLOS", "JORGE", "JESUS", 
         "FRANCISCO", "MIGUEL", "ANGEL", "PEDRO", "DANIEL", "DAVID",
         "FERNANDO", "PABLO", "RAFAEL", "JAVIER", "ANTONIO", "MANUEL",
         "RICARDO", "ROBERTO", "SANTIAGO", "ANDRES", "DIEGO", "ALEJANDRO",
         "ANA", "CARMEN", "ROSA", "LUZ", "SOL", "ALBA", "CLARA", "SOFIA",
-        "Isabel", "LUCIA", "PAULA", "CLAUDIA", "PATRICIA", "MONICA",
-        "GLORIA", "TERESA", "ADRIANA", "NATALIA", "CRISTINA", "BEATRIZ"
-    ]
+        "ISABEL", "LUCIA", "PAULA", "CLAUDIA", "PATRICIA", "MONICA",
+        "GLORIA", "TERESA", "ADRIANA", "NATALIA", "CRISTINA", "BEATRIZ",
+        "ELIZABETH", "GABRIELA", "MARCELA", "SANDRA", "LAURA", "DIANA",
+        "MARTHA", "PILAR", "ROCIO", "SILVIA", "VICTORIA", "VIVIANA"
+    }
     
-    # PASO 1: Tomar SOLO el primer nombre (índice 0)
+    # PASO 1: Siempre tomar la primera palabra como primer nombre
     primer_nombre = partes[0]
     
-    # PASO 2: Buscar el primer apellido real empezando desde la posición 1
-    # Saltamos nombres compuestos y partículas
+    # PASO 2: Buscar el primer apellido
     primer_apellido = None
     i = 1
     
     while i < len(partes):
         palabra_actual = partes[i]
         
-        # Verificar si es una partícula de 2 palabras (DE LOS, DE LA)
+        # Verificar partículas de 2 palabras primero
         if i < len(partes) - 1:
             dos_palabras = f"{palabra_actual} {partes[i+1]}"
             if dos_palabras in particulas:
-                i += 2  # Saltar ambas palabras
+                i += 2
                 continue
         
-        # Verificar si es una partícula de 1 palabra
+        # Verificar partículas de 1 palabra
         if palabra_actual in particulas:
             i += 1
             continue
@@ -342,17 +353,27 @@ def extraer_primer_nombre_apellido(nombre_completo):
             i += 1
             continue
         
-        # Si llegamos aquí, es el primer apellido real
+        # Si la palabra tiene menos de 2 caracteres, probablemente sea inicial
+        if len(palabra_actual) < 2:
+            i += 1
+            continue
+        
+        # Si llegamos aquí, es el primer apellido
         primer_apellido = palabra_actual
         break
     
-    # Fallback: si no se encontró apellido después de filtros, usar la última palabra disponible
-    if not primer_apellido and len(partes) > 1:
-        # Tomar la última palabra que no sea partícula
+    # FALLBACK: si no encontramos apellido, usar estrategia alternativa
+    if not primer_apellido:
+        # Buscar desde el final hacia atrás, excluyendo partículas
         for j in range(len(partes) - 1, 0, -1):
-            if partes[j] not in particulas:
-                primer_apellido = partes[j]
+            candidato = partes[j]
+            if candidato not in particulas and len(candidato) >= 2:
+                primer_apellido = candidato
                 break
+    
+    # ÚLTIMA OPCIÓN: si aún no hay apellido y hay al menos 2 partes, usar la segunda
+    if not primer_apellido and len(partes) >= 2:
+        primer_apellido = partes[1]
     
     return primer_nombre, primer_apellido
 
@@ -369,9 +390,11 @@ def extraer_info(pdf_bytes):
     nombre_completo = detectar_nombre_con_flexibilidad(texto)
     if not nombre_completo:
         return None, None, None, None, None, "ERROR: Sin nombre"
+    
     primer_nombre, primer_apellido = extraer_primer_nombre_apellido(nombre_completo)
     if not primer_nombre or not primer_apellido:
         return None, None, None, None, None, "ERROR: Nombre inválido"
+    
     base_ab = base_abrev.get(base, "XXX")
 
     if curso_detectado:
@@ -398,7 +421,7 @@ def separar_paginas_pdf(pdf_bytes, nombre_origen):
             nuevo_doc.close()
         doc.close()
     except Exception as e:
-        st.warning(f"Error: {nombre_origen}")
+        st.warning(f"Error al procesar: {nombre_origen}")
     return paginas
 
 def extraer_pdfs_de_archivos(uploaded_files):
@@ -406,7 +429,7 @@ def extraer_pdfs_de_archivos(uploaded_files):
     for uploaded in uploaded_files:
         contenido = uploaded.read()
         if uploaded.name.lower().endswith(".pdf"):
-            nombre_base = uploaded.name.replace(".pdf","")
+            nombre_base = uploaded.name.replace(".pdf", "")
             pdfs.extend(separar_paginas_pdf(contenido, nombre_base))
         elif uploaded.name.lower().endswith(".zip"):
             try:
@@ -414,10 +437,10 @@ def extraer_pdfs_de_archivos(uploaded_files):
                     for nombre_archivo in zipf.namelist():
                         if nombre_archivo.lower().endswith(".pdf"):
                             pdf_bytes = zipf.read(nombre_archivo)
-                            nombre_base = nombre_archivo.replace(".pdf","")
+                            nombre_base = nombre_archivo.replace(".pdf", "")
                             pdfs.extend(separar_paginas_pdf(pdf_bytes, nombre_base))
             except Exception as e:
-                st.warning(f"Error ZIP: {uploaded.name}")
+                st.warning(f"Error al leer ZIP: {uploaded.name}")
     return pdfs
 
 def crear_zip_organizado(renombrados_info):
@@ -490,7 +513,7 @@ st.markdown("<div style='background: #1a1a1a; padding: 2rem; border-radius: 12px
 uploaded_files = st.file_uploader(
     "Cargar archivos",
     accept_multiple_files=True,
-    type=["pdf","zip"],
+    type=["pdf", "zip"],
     help="PDF o ZIP"
 )
 st.markdown("</div>", unsafe_allow_html=True)
@@ -519,11 +542,36 @@ if uploaded_files:
             
             if estado.startswith("ERROR"):
                 errores += 1
-                log.append({"ID": len(log)+1, "Página original": nombre_original,"Estado":estado, "Nombre final": "", "Base": "", "Curso": "", "Tipo": "", "Alumno": ""})
+                log.append({
+                    "ID": len(log)+1, 
+                    "Página original": nombre_original,
+                    "Estado": estado, 
+                    "Nombre final": "", 
+                    "Base": "", 
+                    "Curso": "", 
+                    "Tipo": "", 
+                    "Alumno": ""
+                })
                 continue
             
-            renombrados_info.append({"Nombre final":nuevo_nombre,"Contenido":pdf_bytes,"Cargo":tipo,"Base":base,"Alumno":alumno,"Curso":curso})
-            log.append({"ID": len(log)+1, "Página original":nombre_original,"Estado":estado,"Nombre final":nuevo_nombre,"Base":base,"Curso":curso,"Tipo":tipo,"Alumno":alumno})
+            renombrados_info.append({
+                "Nombre final": nuevo_nombre,
+                "Contenido": pdf_bytes,
+                "Cargo": tipo,
+                "Base": base,
+                "Alumno": alumno,
+                "Curso": curso
+            })
+            log.append({
+                "ID": len(log)+1, 
+                "Página original": nombre_original,
+                "Estado": estado,
+                "Nombre final": nuevo_nombre,
+                "Base": base,
+                "Curso": curso,
+                "Tipo": tipo,
+                "Alumno": alumno
+            })
         
         progress_bar.empty()
         status_text.empty()
@@ -609,7 +657,6 @@ if uploaded_files:
                 for idx, row in edited_df.iterrows():
                     if row["Estado"] == "✅":
                         # Buscar el índice correspondiente en renombrados_info
-                        original_name = row["Nombre final"]
                         for i, info in enumerate(renombrados_info):
                             # Comparar por alumno y base para identificar el registro correcto
                             if (info["Base"] == row["Base"] and 
@@ -637,7 +684,7 @@ if uploaded_files:
             with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
                 # Usar edited_df si existe, sino df_log
                 final_df = edited_df if 'edited_df' in locals() else pd.DataFrame(log)
-                final_df.to_excel(writer,index=False,sheet_name="Reporte")
+                final_df.to_excel(writer, index=False, sheet_name="Reporte")
             excel_buffer.seek(0)
             st.download_button(
                 "📊 Descargar Excel",
