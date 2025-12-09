@@ -297,7 +297,8 @@ def detectar_nombre_con_flexibilidad(texto):
 def extraer_primer_nombre_apellido(nombre_completo):
     """
     Extrae el primer nombre y primer apellido de un nombre completo.
-    Maneja nombres compuestos, partículas y casos edge.
+    REGLA PRINCIPAL: En nombres de 4 palabras, el apellido SIEMPRE es la 3ra palabra.
+    Para otros casos, detecta partículas y nombres compuestos.
     """
     if not nombre_completo: 
         return None, None
@@ -310,10 +311,14 @@ def extraer_primer_nombre_apellido(nombre_completo):
     if len(partes) < 2: 
         return None, None
     
-    # Partículas que indican que la siguiente palabra es parte del apellido (usar set para O(1))
+    # CASO ESPECIAL: Nombres de 4 palabras - apellido SIEMPRE es la 3ra palabra
+    if len(partes) == 4:
+        return partes[0], partes[2]
+    
+    # Partículas que indican que la siguiente palabra es parte del apellido
     particulas = {"DE", "DEL", "DE LOS", "DE LA", "Y", "LA", "LAS", "LOS", "VAN", "VON", "MC", "MAC"}
     
-    # Nombres compuestos comunes que NO son apellidos (usar set para O(1))
+    # Nombres compuestos comunes que NO son apellidos
     nombres_compuestos = {
         "MARIA", "JOSE", "JUAN", "LUIS", "CARLOS", "JORGE", "JESUS", 
         "FRANCISCO", "MIGUEL", "ANGEL", "PEDRO", "DANIEL", "DAVID",
@@ -326,10 +331,10 @@ def extraer_primer_nombre_apellido(nombre_completo):
         "MARTHA", "PILAR", "ROCIO", "SILVIA", "VICTORIA", "VIVIANA"
     }
     
-    # PASO 1: Siempre tomar la primera palabra como primer nombre
+    # Primer nombre siempre es la primera palabra
     primer_nombre = partes[0]
     
-    # PASO 2: Buscar el primer apellido
+    # Buscar el primer apellido (para nombres de 2, 3, 5+ palabras)
     primer_apellido = None
     i = 1
     
@@ -362,16 +367,7 @@ def extraer_primer_nombre_apellido(nombre_completo):
         primer_apellido = palabra_actual
         break
     
-    # FALLBACK: si no encontramos apellido, usar estrategia alternativa
-    if not primer_apellido:
-        # Buscar desde el final hacia atrás, excluyendo partículas
-        for j in range(len(partes) - 1, 0, -1):
-            candidato = partes[j]
-            if candidato not in particulas and len(candidato) >= 2:
-                primer_apellido = candidato
-                break
-    
-    # ÚLTIMA OPCIÓN: si aún no hay apellido y hay al menos 2 partes, usar la segunda
+    # Fallback: si no encontramos apellido, usar la segunda palabra
     if not primer_apellido and len(partes) >= 2:
         primer_apellido = partes[1]
     
